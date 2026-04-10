@@ -1,5 +1,5 @@
 import { Transform, Type } from 'class-transformer';
-import { IsOptional, IsString, IsNumber, IsBoolean} from 'class-validator';
+import { IsOptional, IsString, IsNumber, IsBoolean, IsIn, Min } from 'class-validator';
 
 const toBoolean = ({ value }) => {
   if (typeof value === 'boolean') return value;
@@ -12,30 +12,39 @@ const toBoolean = ({ value }) => {
 };
 
 export class GetProductsFilterDto {
-    
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   search?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   brand?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsIn(['designer', 'niche', 'arabic'])
   type?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsIn(['man', 'woman', 'unisex'])
   gender?: string;
 
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
+  @Min(0)
   minPrice?: number;
 
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
+  @Min(0)
   maxPrice?: number;
-  
-  @IsOptional() 
+
+  @IsOptional()
+  @IsIn(['EF', 'EDC', 'EDT', 'EDP', 'Parfum', 'Elixir'])
+  concentration?: string;
+
+  @IsOptional()
   @Transform(toBoolean)
   @IsBoolean()
   onSale?: boolean;
