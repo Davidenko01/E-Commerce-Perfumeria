@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -13,17 +8,358 @@ datasource db {
   provider = "postgresql"
 }
 
+// -----------------------------------------------------------------------------
+// ENUMS
+// -----------------------------------------------------------------------------
+
 enum Role {
-  CUSTOMER
   ADMIN
+  USER
 }
 
-model User {
-  id        Int   @id @default(autoincrement())
-  email     String   @unique
-  password  String   //Se guarda la pass hasheada, no la contraseña en texto plano
-  name      String
-  role      Role     @default(CUSTOMER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum Genero {
+  HOMBRE
+  MUJER
+  UNISEX
+}
+
+enum Concentracion {
+  EF
+  EDC
+  EDT
+  EDP
+  PARFUM
+  ELIXIR
+}
+
+enum EstadoCarrito {
+  ACTIVO
+  ABANDONADO
+  COMPLETADO
+}
+
+enum EstadoPedido {
+  PENDIENTE
+  CONFIRMADO
+  EN_PREPARACION
+  LISTO_RETIRO
+  DESPACHADO
+  ENTREGADO
+  CANCELADO
+}
+
+enum EstadoPago {
+  PENDIENTE
+  APROBADO
+  RECHAZADO
+  CANCELADO
+  REEMBOLSADO
+}
+
+enum TipoEntrega {
+  ENVIO
+  RETIRO
+}
+
+enum TipoMovimiento {
+  ENTRADA
+  SALIDA
+  AJUSTE
+}
+
+enum OrigenPagoEvento {
+  WEBHOOK
+  MANUAL
+  SISTEMA
+}
+
+enum TipoMetodoPago {
+  TARJETA_CREDITO
+  TARJETA_DEBITO
+  TRANSFERENCIA_BANCARIA
+  EFECTIVO               // Ideal para "Retiro en Local" o contra reembolso
+  BILLETERA_VIRTUAL      // Para pagos con saldo de Mercado Pago, MODO, Ualá, etc.
+  OTRO
+}
+
+// -----------------------------------------------------------------------------
+// MODELOS
+// -----------------------------------------------------------------------------
+
+model Usuario {
+  id           Int       @id @default(autoincrement())
+  nombre       String
+  apellido     String
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  telefono     String?
+  role         Role  @default(USER)
+  activo       Boolean   @default(true)
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  direcciones      Direccion[]
+  carritos         Carrito[]
+  pedidos          Pedido[]
+  resenas          Resena[]
+  movimientosStock MovimientoStock[]
+
+  @@map("usuarios")
+}
+
+model Marca {
+  id          Int       @id @default(autoincrement())
+  nombre      String    @unique
+  descripcion String?
+  paisOrigen  String?   @map("pais_origen")
+  activo      Boolean   @default(true)
+  logoUrl     String?   @map("logo_url")
+
+  perfumes Perfume[]
+  lineas   Linea[]
+
+  @@map("marcas")
+}
+
+model Linea {
+  id      Int    @id @default(autoincrement())
+  nombre  String
+  marcaId Int    @map("marca_id")
+
+  marca    Marca     @relation(fields: [marcaId], references: [id])
+  perfumes Perfume[]
+
+  @@map("lineas")
+}
+
+model Perfume {
+  id           Int           @id @default(autoincrement())
+  marcaId      Int           @map("marca_id")
+  lineaId      Int?          @map("linea_id")
+  nombre       String
+  descripcion  String?
+  concentracion Concentracion?
+  genero       Genero
+  activo       Boolean       @default(true)
+  imagenUrl    String?       @map("imagen_url")
+  slug         String        @unique
+  createdAt    DateTime      @default(now()) @map("created_at")
+
+  marca    Marca              @relation(fields: [marcaId], references: [id])
+  linea    Linea?             @relation(fields: [lineaId], references: [id])
+  variantes VariantePerfume[]
+  categorias Categoria[]
+  resenas   Resena[]
+
+  @@map("perfumes")
+}
+
+model Categoria {
+  id              Int       @id @default(autoincrement())
+  nombre          String
+  descripcion     String?
+  slug            String    @unique
+  categoriaPadreId Int?     @map("categoria_padre_id")
+
+  categoriaPadre Categoria?  @relation("CategoriaHijos", fields: [categoriaPadreId], references: [id])
+  hijos          Categoria[] @relation("CategoriaHijos")
+  perfumes       Perfume[]
+
+  @@map("categorias")
+}
+
+model VariantePerfume {
+  id        Int     @id @default(autoincrement())
+  perfumeId Int     @map("perfume_id")
+  volumen   Int                          // en ml
+  precio    Decimal @db.Decimal(10, 2)
+  stock     Int     @default(0)
+  sku       String  @unique
+  activo    Boolean @default(true)
+
+  perfume         Perfume           @relation(fields: [perfumeId], references: [id])
+  itemsCarrito    ItemCarrito[]
+  itemsPedido     ItemPedido[]
+  movimientosStock MovimientoStock[]
+
+  @@map("variantes_perfume")
+}
+
+model Direccion {
+  id         Int     @id @default(autoincrement())
+  usuarioId  Int     @map("usuario_id")
+  calle      String
+  nro        String
+  piso       String?
+  dpto       String?
+  ciudad     String
+  provincia  String  @map("pvcia")
+  codigoPostal String @map("cod_postal")
+  principal  Boolean @default(false)
+
+  usuario Usuario  @relation(fields: [usuarioId], references: [id])
+  pedidos Pedido[]
+
+  @@map("direcciones")
+}
+
+model Carrito {
+  id        Int           @id @default(autoincrement())
+  usuarioId Int           @map("usuario_id")
+  estado    EstadoCarrito @default(ACTIVO)
+  creadoAt  DateTime      @default(now()) @map("creado_at")
+
+  usuario Usuario       @relation(fields: [usuarioId], references: [id])
+  items   ItemCarrito[]
+
+  @@map("carritos")
+}
+
+model ItemCarrito {
+  carritoId      Int     @map("carrito_id")
+  varianteId     Int     @map("variante_id")
+  cantidad       Int
+  precioUnitario Decimal @db.Decimal(10, 2) @map("precio_unitario")
+
+  carrito  Carrito         @relation(fields: [carritoId], references: [id])
+  variante VariantePerfume @relation(fields: [varianteId], references: [id])
+
+  @@id([carritoId, varianteId])
+  @@map("items_carrito")
+}
+
+model Pedido {
+  id          Int          @id @default(autoincrement())
+  usuarioId   Int          @map("usuario_id")
+  direccionId Int?         @map("direccion_id")
+  nroPedido   String       @unique @map("nro_pedido")
+  tipoEntrega TipoEntrega  @map("tipo_entrega")
+  subtotal    Decimal      @db.Decimal(10, 2)
+  costoEnvio  Decimal      @db.Decimal(10, 2) @default(0) @map("costo_envio")
+  total       Decimal      @db.Decimal(10, 2)
+  estado      EstadoPedido @default(PENDIENTE)
+  fechaCreacion DateTime   @default(now()) @map("fecha_creacion")
+
+  usuario   Usuario     @relation(fields: [usuarioId], references: [id])
+  direccion Direccion?  @relation(fields: [direccionId], references: [id])
+  items     ItemPedido[]
+  logistica Logistica?
+  pagos     Pago[]
+  movimientosStock MovimientoStock[]
+
+  @@map("pedidos")
+}
+
+model ItemPedido {
+  pedidoId       Int     @map("pedido_id")
+  varianteId     Int     @map("variante_id")
+  cantidad       Int
+  precioUnitario Decimal @db.Decimal(10, 2) @map("precio_unitario")
+
+  pedido   Pedido          @relation(fields: [pedidoId], references: [id])
+  variante VariantePerfume @relation(fields: [varianteId], references: [id])
+
+  @@id([pedidoId, varianteId])
+  @@map("items_pedido")
+}
+
+model Logistica {
+  id             Int       @id @default(autoincrement())
+  pedidoId       Int       @unique @map("pedido_id")
+  destinatario   String
+  calle          String
+  nro            String
+  ciudad         String?
+  provincia      String
+  cp             String
+  empresaCorreo  String   @map("empresa_correo")
+  trackingNumber String   @map("tracking_number")
+  codigoRetiro   String   @map("codigo_retiro")
+  fechaDespacho  DateTime? @map("fecha_despacho")
+
+  pedido Pedido @relation(fields: [pedidoId], references: [id])
+
+  @@map("logistica")
+}
+
+model MetodoPago {
+  id     Int            @id @default(autoincrement())
+  nombre String         @unique
+  tipo   TipoMetodoPago
+  activo Boolean        @default(true)
+
+  pagos Pago[]
+
+  @@map("metodos_pago")
+}
+
+model Pago {
+  id              Int        @id @default(autoincrement())
+  pedidoId        Int        @map("pedido_id")
+  metodoPagoId    Int        @map("metodo_pago_id")
+  cuotas          Int        @default(1)
+  monto           Decimal    @db.Decimal(10, 2)
+  moneda          String     @default("ARS")
+  estado          EstadoPago @default(PENDIENTE)
+  externalId      String?    @map("external_id")
+  externalStatus  String?    @map("external_status")
+  paymentType     String?    @map("payment_type")
+  montoReembolso  Decimal?   @db.Decimal(10, 2) @map("monto_reembolso")
+  fechaReembolso  DateTime?  @map("fecha_reembolso")
+  fechaCreacion   DateTime   @default(now()) @map("fecha_creacion")
+  fechaActualizacion DateTime @updatedAt @map("fecha_actualizacion")
+
+  pedido     Pedido     @relation(fields: [pedidoId], references: [id])
+  metodoPago MetodoPago @relation(fields: [metodoPagoId], references: [id])
+  eventos    PagoEvento[]
+
+  @@map("pagos")
+}
+
+model PagoEvento {
+  id             Int              @id @default(autoincrement())
+  pagoId         Int              @map("pago_id")
+  estadoAnterior EstadoPago?      @map("estado_anterior")
+  estadoNuevo    EstadoPago       @map("estado_nuevo")
+  origen         OrigenPagoEvento
+  payload        Json?
+  fecha          DateTime         @default(now())
+
+  pago Pago @relation(fields: [pagoId], references: [id])
+
+  @@map("pagos_eventos")
+}
+
+model MovimientoStock {
+  id            Int                 @id @default(autoincrement())
+  varianteId    Int                 @map("variante_id")
+  pedidoId      Int?                @map("pedido_id")
+  usuarioId     Int?                @map("usuario_id")
+  tipo          TipoMovimiento
+  cantidad      Int
+  stockAnterior Int                 @map("stock_anterior")
+  stockNuevo    Int                 @map("stock_nuevo")
+  motivo        String?
+  fecha         DateTime            @default(now())
+
+  variante VariantePerfume @relation(fields: [varianteId], references: [id])
+  pedido   Pedido?         @relation(fields: [pedidoId], references: [id])
+  usuario  Usuario?        @relation(fields: [usuarioId], references: [id])
+
+  @@map("movimientos_stock")
+}
+
+model Resena {
+  id                Int      @id @default(autoincrement())
+  usuarioId         Int      @map("usuario_id")
+  perfumeId         Int      @map("perfume_id")
+  calificacion      Int
+  comentario        String?
+  compraVerificada  Boolean  @default(false) @map("compra_verificada")
+  fecha             DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+  perfume Perfume @relation(fields: [perfumeId], references: [id])
+
+  @@unique([usuarioId, perfumeId])
+  @@map("resenas")
 }

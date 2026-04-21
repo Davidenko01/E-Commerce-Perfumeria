@@ -1,6 +1,5 @@
 
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
-import { Observable } from 'rxjs';
 import { Reflector } from '@nestjs/core';
 import { UserRole } from '../../users/interfaces/user.interface';
 @Injectable()

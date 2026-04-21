@@ -1,5 +1,5 @@
 import { Transform, Type } from 'class-transformer';
-import { IsOptional, IsString, IsNumber, IsBoolean, IsNotEmpty, MaxLength, Min, Max, IsIn, IsUrl } from 'class-validator';
+import { IsOptional, IsString, IsNumber, IsBoolean, IsNotEmpty, MaxLength, Min, Max, IsIn, IsUrl, IsArray, ArrayMinSize } from 'class-validator';
 
 const toBoolean = ({ value }) => {
   if (typeof value === 'boolean') return value;
@@ -21,6 +21,11 @@ export class CreateProductDto {
   @Type(() => Number)
   @IsNumber()
   brandId: number;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsNumber({}, {each: true})
+  categoriesId: number[]
 
   @IsNotEmpty()
   @IsString()
