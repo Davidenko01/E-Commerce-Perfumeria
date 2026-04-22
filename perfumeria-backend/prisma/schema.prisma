@@ -135,6 +135,7 @@ model Perfume {
   id           Int           @id @default(autoincrement())
   marcaId      Int           @map("marca_id")
   lineaId      Int?          @map("linea_id")
+  categoriaId  Int           @map("categoria_id")
   nombre       String
   descripcion  String?
   concentracion Concentracion?
@@ -147,7 +148,9 @@ model Perfume {
   marca    Marca              @relation(fields: [marcaId], references: [id])
   linea    Linea?             @relation(fields: [lineaId], references: [id])
   variantes VariantePerfume[]
-  categorias Categoria[]
+  categoria Categoria        @relation(fields: [categoriaId], references: [id])
+  acordes Acorde[]
+
   resenas   Resena[]
 
   @@map("perfumes")
@@ -165,6 +168,15 @@ model Categoria {
   perfumes       Perfume[]
 
   @@map("categorias")
+}
+
+model Acorde {
+  id          Int       @id @default(autoincrement())
+  nombre      String    @unique // Ej: "Dulce", "Atalcado", "Cítrico"
+  slug        String    @unique
+  perfumes    Perfume[] 
+
+  @@map("acordes")
 }
 
 model VariantePerfume {
@@ -266,14 +278,14 @@ model Logistica {
   id             Int       @id @default(autoincrement())
   pedidoId       Int       @unique @map("pedido_id")
   destinatario   String
-  calle          String
-  nro            String
+  calle          String?
+  nro            String?
   ciudad         String?
-  provincia      String
-  cp             String
-  empresaCorreo  String   @map("empresa_correo")
-  trackingNumber String   @map("tracking_number")
-  codigoRetiro   String   @map("codigo_retiro")
+  provincia      String?
+  cp             String?
+  empresaCorreo  String?   @map("empresa_correo")
+  trackingNumber String?  @map("tracking_number")
+  codigoRetiro   String?   @map("codigo_retiro")
   fechaDespacho  DateTime? @map("fecha_despacho")
 
   pedido Pedido @relation(fields: [pedidoId], references: [id])

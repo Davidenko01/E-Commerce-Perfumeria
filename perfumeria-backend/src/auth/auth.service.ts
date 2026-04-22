@@ -5,7 +5,7 @@ import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/register.dto';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
-import { UserSafe } from '../users/interfaces/user-safe.interface';
+import { UserSafe } from '@/users/interfaces/user-safe.interface';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 
 @Injectable()
