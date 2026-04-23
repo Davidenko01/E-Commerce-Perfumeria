@@ -1,4 +1,16 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { GetProductsFilterDto } from './dto/get-products-filter.dto';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -22,31 +34,36 @@ export class ProductsController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
+  @Roles('ADMIN')
   @Post()
   create(@Body() product: CreateProductDto) {
     return this.productsService.create(product);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
+  @Roles('ADMIN')
   @Put(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() product: CreateProductDto) {
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() product: CreateProductDto,
+  ) {
     return this.productsService.update(id, product);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
+  @Roles('ADMIN')
   @Patch(':id')
-  partialUpdate(@Param('id', ParseIntPipe) id: number, @Body() product: UpdateProductDto) {
-    return this.productsService.partialUpdate(id, product); 
+  partialUpdate(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() product: UpdateProductDto,
+  ) {
+    return this.productsService.partialUpdate(id, product);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
+  @Roles('ADMIN')
   @Delete(':id')
   delete(@Param('id', ParseIntPipe) id: number) {
     return this.productsService.delete(id);
   }
 }
-
