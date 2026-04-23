@@ -3,7 +3,7 @@ import { ProductosModule } from './productos/productos.module';
 import { MarcasModule } from './marcas/marcas.module';
 import { CategoriasModule } from './categorias/categorias.module';
 import { ShowroomModule } from './showroom/showroom.module';
-import { UsersModule } from './users/users.module';
+import { UsuariosModule } from './users/usuarios.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 
@@ -13,7 +13,7 @@ import { AuthModule } from './auth/auth.module';
     MarcasModule,
     CategoriasModule,
     ShowroomModule,
-    UsersModule,
+    UsuariosModule,
     PrismaModule,
     AuthModule,
   ],

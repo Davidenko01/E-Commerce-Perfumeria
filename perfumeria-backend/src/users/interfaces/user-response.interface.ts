@@ -1,12 +1,11 @@
-export interface Usuario {
+import { UserRole } from './user.interface';
+
+export interface UsuarioResponse {
   id: number;
   email: string;
   nombre: string;
-  passwordHash: string;
   telefono: string | null;
   role: UserRole;
   activo: boolean;
   createdAt: Date;
 }
-
-export type UserRole = 'ADMIN' | 'USER';

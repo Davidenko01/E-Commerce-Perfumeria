@@ -1,63 +1,82 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { UsersService } from 'src/users/users.service';
+import { UsuariosService } from '../users/usuarios.service';
 import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/register.dto';
-import { CreateUserDto } from 'src/users/dto/create-user.dto';
-import { UserSafe } from '@/users/interfaces/user-safe.interface';
+import { CrearUsuarioDto } from '../users/dto/crear-usuario.dto';
+import { UsuarioResponse } from '../users/interfaces/user-response.interface';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 
 @Injectable()
 export class AuthService {
+  constructor(
+    private usuariosService: UsuariosService,
+    private jwtService: JwtService,
+  ) {}
 
-    constructor(private usersService: UsersService, private jwtService: JwtService) {}
+  async register(registerDto: RegisterDto) {
+    const { email, password, nombre, apellido } = registerDto;
 
-    async register(registerDto: RegisterDto) {
-        const { email, password, name } = registerDto;
-
-        //Verifica si el correo ya está registrado
-        const existingUser = await this.usersService.findByEmailSafe(email);
-        if (existingUser) {
-            throw new ConflictException('El correo ya está registrado');
-        }   
-        //Hashea la password antes de guardarla en la base de datos
-        const hashedPassword: string = await bcrypt.hash(password, 10);
-        const createUserDto: CreateUserDto = {email, hashedPassword, name};
-        // Crea el usuario con la contraseña hasheada
-        const user: UserSafe = await this.usersService.create(createUserDto);
-        const payload: JwtPayload = {sub: user.id, email: user.email, role: user.role};
-        return {
-            access_token: this.jwtService.sign(payload),
-            user: user
-        };
-
+    const existingUser = await this.usuariosService.findByEmail(email);
+    if (existingUser) {
+      throw new ConflictException('El correo ya está registrado');
     }
 
-    async login(loginDto: LoginDto) {
-        const { email, password } = loginDto;
+    const hashedPassword: string = await bcrypt.hash(password, 10);
+    const crearUsuarioDto: CrearUsuarioDto = {
+      email,
+      nombre,
+      apellido,
+      passwordHash: hashedPassword,
+    };
 
-        //Verifica si el usuario existe
-        const user = await this.usersService.findByEmail(email);
-        if (!user) {
-            throw new UnauthorizedException('Credenciales inválidas');
-        }
-        // Solo comparo la password si el usuario existe
-        const passwordMatched:boolean = await bcrypt.compare(password, user.password);
+    const user = await this.usuariosService.create(crearUsuarioDto);
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    };
 
-        if (!passwordMatched) {
-            throw new UnauthorizedException('Credenciales inválidas');
-        }
+    return {
+      access_token: this.jwtService.sign(payload),
+      user,
+    };
+  }
 
-        const payload: JwtPayload = {sub: user.id, email: user.email, role: user.role};
-        return {
-            access_token: this.jwtService.sign(payload),
-            user: {
-                id: user.id,
-                email: user.email,
-                name: user.name,
-                role: user.role,
-            }
-        };
+  async login(loginDto: LoginDto) {
+    const { email, password } = loginDto;
+
+    const user = await this.usuariosService.findByEmail(email);
+    if (!user) {
+      throw new UnauthorizedException('Credenciales inválidas');
     }
+
+    const passwordMatched: boolean = await bcrypt.compare(
+      password,
+      user.passwordHash,
+    );
+    if (!passwordMatched) {
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
+
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    };
+    return {
+      access_token: this.jwtService.sign(payload),
+      user: {
+        id: user.id,
+        email: user.email,
+        nombre: user.nombre,
+        role: user.role,
+      },
+    };
+  }
 }
