@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
-import { ProductsModule } from './products/products.module';
+import { ProductosModule } from './productos/productos.module';
 import { MarcasModule } from './marcas/marcas.module';
+import { CategoriasModule } from './categorias/categorias.module';
 import { ShowroomModule } from './showroom/showroom.module';
 import { UsersModule } from './users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -8,8 +9,9 @@ import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
-    ProductsModule,
+    ProductosModule,
     MarcasModule,
+    CategoriasModule,
     ShowroomModule,
     UsersModule,
     PrismaModule,
