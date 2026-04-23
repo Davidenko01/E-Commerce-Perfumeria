@@ -1,4 +1,4 @@
-# Perfumería Backend - Agent Instructions
+# Perfumería - Agent Instructions
 
 ## Project Structure
 
@@ -13,10 +13,11 @@
 ```bash
 cd perfumeria-backend
 npm run start:dev      # Start with watch mode (port 3000)
-npm run lint            # Lint + Prettier fix
-npm run test            # Run unit tests
-npm run test:e2e        # Run e2e tests
-npm run build           # Build para producción
+npm run lint           # Lint + Prettier fix
+npm run test           # Run unit tests
+npm run test:e2e       # Run e2e tests
+npm run build          # Build para producción
+npm run seed           # Run database seed
 ```
 
 **Frontend:**
@@ -30,60 +31,58 @@ npm run lint            # ESLint
 
 ## Setup Requirements
 
-- **Frontend**: Create `perfumeria-frontend/.env` with `VITE_API_URL=http://localhost:3000`
-- **Database**: Run `docker-compose up -d` for PostgreSQL on port 5432
-- **Prisma generate**: `npx prisma generate` after schema changes
+1. **Database**: `docker-compose up -d` (PostgreSQL on port 5432)
+2. **Generate Prisma client**: `npx prisma generate`
+3. **Apply migrations**: `npx prisma migrate dev --name init`
+4. **Seed database**: `npm run seed`
+5. **Frontend**: Create `perfumeria-frontend/.env` with `VITE_API_URL=http://localhost:3000`
 
-## Database (Phase 3)
+## Backend Modules (Spanish naming)
 
-- PostgreSQL via Docker Compose (port 5432)
+| Module        | Ruta          | Descripción               |
+| ------------- | ------------- | ------------------------- |
+| `auth/`       | `/auth`       | Login, register, JWT      |
+| `marcas/`     | `/marcas`     | CRUD marcas               |
+| `categorias/` | `/categorias` | Familias olfativas        |
+| `productos/`  | `/productos`  | CRUD perfumes + variantes |
+| `usuarios/`   | `/usuarios`   | CRUD usuarios             |
+| `carrito/`    | `/carrito`    | Gestión carrito           |
+| `pedidos/`    | `/pedidos`    | Órdenes de compra         |
+| `showroom/`   | `/showroom`   | Info del local            |
+
+## Prisma Schema
+
 - Prisma schema: `perfumeria-backend/prisma/schema.prisma`
-- Prisma client outputs to `perfumeria-backend/generated/prisma/` (custom, not node_modules)
-- **Current schema is MVP** — algunos modelos están simplificados para将来扩展
+- Prisma client outputs to `perfumeria-backend/generated/prisma/`
+- Generator uses `moduleFormat = "cjs"` (CommonJS)
 
-### Para aplicar migraciones:
+### Modelos MVP activos:
 
-```bash
-cd perfumeria-backend
-npx prisma migrate dev --name init
-```
+- `Usuario`, `Marca`, `Perfume`, `Categoria`
+- `VariantePerfume` (ml, precio, stock por perfume)
+- `Carrito`, `ItemCarrito`
+- `Pedido`, `ItemPedido`
+- `MetodoPago`, `Pago`, `PagoEvento`
 
-## Key Architecture Notes
+### Postergados (futuras fases):
 
-- Backend uses **mock data** currently; Prisma schema ready for Phase 3 PostgreSQL migration
-- CORS is hardcoded to `http://localhost:5173` in `src/main.ts`
-- Backend modules: `auth`, `brands`, `products`, `showroom`, `users`, `prisma`
-- Prisma generator uses `moduleFormat = "cjs"` (CommonJS)
+- `MovimientoStock`, `Logistica`, `Direccion`
+- `Linea`, `Acordes`, `Resena`
 
-## Prisma Schema (MVP Models)
+## Seed Data
 
-```
-Usuario → Pedido → ItemPedido → VariantePerfume
-   ↓         ↓
-  Pago    MetodoPago → PagoEvento
+Run `npm run seed` para populate la base de datos con:
 
-Marca → Perfume → VariantePerfume
-          ↓
-      Categoria
-```
-
-**Models ready for Phase 3:**
-
-- Usuario, Marca, Perfume, Categoria
-- VariantePerfume, Carrito, ItemCarrito
-- Pedido, ItemPedido, MetodoPago
-- Pago, PagoEvento
-
-**Postponed (future phases):**
-
-- MovimientoStock, Logistica, Direccion
-- Linea, Acordes, Resena
+- 6 categorías (familias olfativas)
+- 6 marcas (Dior, Chanel, Tom Ford, YSL, Paco Rabanne, Mugler)
+- 12 perfumes con variantes (30ml, 50ml, 100ml)
+- Admin user: `admin@perfumeria.com` / `admin123`
 
 ## Testing
 
-- Backend tests live alongside source files (`.spec.ts`)
-- Frontend uses flat ESLint config; backend uses flat config with Prettier plugin
+- Tests viven junto a los source files (`.spec.ts`)
+- Backend usa flat ESLint config con Prettier plugin
 
 ## Documentation
 
-- `docs/DATA_MODEL.md` — Full data model documentation with all entities and relationships
+- `docs/DATA_MODEL.md` — Modelo de datos completo
