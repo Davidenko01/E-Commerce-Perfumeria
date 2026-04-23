@@ -6,6 +6,7 @@ import { ShowroomModule } from './showroom/showroom.module';
 import { UsuariosModule } from './users/usuarios.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
+import { CarritoModule } from './carrito/carrito.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { AuthModule } from './auth/auth.module';
     UsuariosModule,
     PrismaModule,
     AuthModule,
+    CarritoModule,
   ],
   controllers: [],
   providers: [],
