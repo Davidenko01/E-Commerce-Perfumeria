@@ -14,6 +14,7 @@ import { CarritoService } from './carrito.service';
 import { AgregarItemCarritoDto } from './dto/agregar-item.dto';
 import { ActualizarItemCarritoDto } from './dto/actualizar-item.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtUser } from '../auth/interfaces/jwt-user.interface';
 
 @Controller('carrito')
 @UseGuards(JwtAuthGuard)
@@ -21,20 +22,23 @@ export class CarritoController {
   constructor(private readonly carritoService: CarritoService) {}
 
   @Get()
-  getMiCarrito(@Request() req: any) {
+  getMiCarrito(@Request() req: { user: JwtUser }) {
     const usuarioId = req.user.id;
     return this.carritoService.findByUsuario(usuarioId);
   }
 
   @Post('items')
-  agregarItem(@Request() req: any, @Body() dto: AgregarItemCarritoDto) {
+  agregarItem(
+    @Request() req: { user: JwtUser },
+    @Body() dto: AgregarItemCarritoDto,
+  ) {
     const usuarioId = req.user.id;
     return this.carritoService.agregarItem(usuarioId, dto);
   }
 
   @Put('items/:varianteId')
   actualizarItem(
-    @Request() req: any,
+    @Request() req: { user: JwtUser },
     @Param('varianteId', ParseIntPipe) varianteId: number,
     @Body() dto: ActualizarItemCarritoDto,
   ) {
@@ -44,7 +48,7 @@ export class CarritoController {
 
   @Delete('items/:varianteId')
   quitarItem(
-    @Request() req: any,
+    @Request() req: { user: JwtUser },
     @Param('varianteId', ParseIntPipe) varianteId: number,
   ) {
     const usuarioId = req.user.id;
@@ -52,7 +56,7 @@ export class CarritoController {
   }
 
   @Delete()
-  vaciarCarrito(@Request() req: any) {
+  vaciarCarrito(@Request() req: { user: JwtUser }) {
     const usuarioId = req.user.id;
     return this.carritoService.vaciarCarrito(usuarioId);
   }

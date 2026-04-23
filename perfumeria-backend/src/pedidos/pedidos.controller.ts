@@ -15,6 +15,7 @@ import { ActualizarEstadoPedidoDto } from './dto/actualizar-estado-pedido.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/role.decorator';
+import { JwtUser } from '../auth/interfaces/jwt-user.interface';
 
 @Controller('pedidos')
 export class PedidosController {
@@ -22,7 +23,7 @@ export class PedidosController {
 
   @Get()
   @UseGuards(JwtAuthGuard)
-  getMisPedidos(@Request() req: any) {
+  getMisPedidos(@Request() req: { user: JwtUser }) {
     return this.pedidosService.findByUsuario(req.user.id);
   }
 
@@ -35,7 +36,10 @@ export class PedidosController {
 
   @Get(':id')
   @UseGuards(JwtAuthGuard)
-  getPedido(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+  getPedido(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: JwtUser },
+  ) {
     return this.pedidosService.findOne(id, req.user.id);
   }
 
@@ -47,7 +51,7 @@ export class PedidosController {
 
   @Post()
   @UseGuards(JwtAuthGuard)
-  crearPedido(@Request() req: any, @Body() dto: CrearPedidoDto) {
+  crearPedido(@Request() req: { user: JwtUser }, @Body() dto: CrearPedidoDto) {
     return this.pedidosService.create(req.user.id, dto);
   }
 

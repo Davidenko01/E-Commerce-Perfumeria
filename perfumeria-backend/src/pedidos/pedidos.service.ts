@@ -167,7 +167,7 @@ export class PedidosService {
 
     return this.prisma.pedido.update({
       where: { id },
-      data: { estado: dto.estado as any },
+      data: { estado: dto.estado },
       include: {
         items: {
           include: {

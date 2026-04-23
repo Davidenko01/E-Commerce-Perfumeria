@@ -1,19 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Genero, Concentracion, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CrearPerfumeDto } from './dto/crear-perfume.dto';
 import { ActualizarPerfumeDto } from './dto/actualizar-perfume.dto';
 import { FiltrosPerfumeDto } from './dto/filtros-perfume.dto';
-import {
-  PerfumeResponse,
-  VariantePerfumeResponse,
-} from './interfaces/perfume-response.interface';
 
 @Injectable()
 export class ProductosService {
   constructor(private prisma: PrismaService) {}
 
   async findAll(filters: FiltrosPerfumeDto) {
-    const where: any = {};
+    const where: Prisma.PerfumeWhereInput = {};
 
     if (filters.search) {
       where.OR = [
@@ -32,7 +29,7 @@ export class ProductosService {
     }
 
     if (filters.genero) {
-      where.genero = filters.genero;
+      where.genero = filters.genero as Genero;
     }
 
     if (filters.tipo) {
@@ -40,7 +37,7 @@ export class ProductosService {
     }
 
     if (filters.concentracion) {
-      where.concentracion = filters.concentracion;
+      where.concentracion = filters.concentracion as Concentracion;
     }
 
     if (filters.categoriaId) {

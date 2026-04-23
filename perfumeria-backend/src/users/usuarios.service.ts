@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CrearUsuarioDto } from './dto/crear-usuario.dto';
 import { ActualizarUsuarioDto } from './dto/actualizar-usuario.dto';
@@ -92,14 +93,14 @@ export class UsuariosService {
   ): Promise<UsuarioResponse> {
     await this.findOne(id);
 
-    const data: any = { ...dto };
+    const updateData: Prisma.UsuarioUpdateInput = { ...dto };
     if (dto.passwordHash) {
-      data.passwordHash = await bcrypt.hash(dto.passwordHash, 10);
+      updateData.passwordHash = await bcrypt.hash(dto.passwordHash, 10);
     }
 
     return this.prisma.usuario.update({
       where: { id },
-      data,
+      data: updateData,
       select: {
         id: true,
         email: true,
