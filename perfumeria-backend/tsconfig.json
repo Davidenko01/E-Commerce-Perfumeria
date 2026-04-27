@@ -5,8 +5,8 @@
     "baseUrl": "./",
     "paths": {
       "@/*": ["src/*"],
-      "@generated/*": ["generated/*"],
-      "@prisma/*": ["generated/prisma/*"]
+      "@generated/*": ["src/generated/*"],
+      "@prisma/*": ["src/generated/prisma/*"]
     },
     "resolvePackageJsonExports": true,
     "esModuleInterop": true,
