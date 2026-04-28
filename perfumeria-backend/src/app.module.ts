@@ -8,6 +8,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { CarritoModule } from './carrito/carrito.module';
 import { PedidosModule } from './pedidos/pedidos.module';
+import { VariantesModule } from './variantes/variantes.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { PedidosModule } from './pedidos/pedidos.module';
     AuthModule,
     CarritoModule,
     PedidosModule,
+    VariantesModule,
   ],
   controllers: [],
   providers: [],

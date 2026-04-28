@@ -63,14 +63,12 @@ export class UsuariosService {
       throw new ConflictException(`El email ${dto.email} ya está registrado`);
     }
 
-    const hashedPassword = await bcrypt.hash(dto.passwordHash, 10);
-
     return this.prisma.usuario.create({
       data: {
         nombre: dto.nombre,
         apellido: dto.apellido,
         email: dto.email,
-        passwordHash: hashedPassword,
+        passwordHash: dto.passwordHash,
         telefono: dto.telefono,
         role: 'USER',
         activo: true,

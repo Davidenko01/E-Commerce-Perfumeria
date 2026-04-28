@@ -1,344 +1,302 @@
-import { PrismaClient } from '../generated/prisma';
-
-const prisma = new PrismaClient();
+import { PrismaClient, Role, Genero, Concentracion, TipoMetodoPago } from '../src/generated/prisma/client';
+import * as bcrypt from 'bcrypt';
+import { PrismaPg } from '@prisma/adapter-pg';
+const adapter = new PrismaPg({connectionString: process.env.DATABASE_URL});
+const prisma = new PrismaClient({adapter});
 
 async function main() {
-  console.log('🌸 Starting seed...');
+  console.log('🌱 Iniciando seeder...');
 
-  // Clean existing data
-  await prisma.pagoEvento.deleteMany();
-  await prisma.pago.deleteMany();
-  await prisma.itemPedido.deleteMany();
-  await prisma.pedido.deleteMany();
-  await prisma.itemCarrito.deleteMany();
-  await prisma.carrito.deleteMany();
-  await prisma.variantePerfume.deleteMany();
-  await prisma.perfume.deleteMany();
-  await prisma.categoria.deleteMany();
-  await prisma.marca.deleteMany();
+  // -------------------------------------------------------------------------
+  // USUARIOS
+  // -------------------------------------------------------------------------
+  const adminHash = await bcrypt.hash('admin123', 10);
+  const userHash = await bcrypt.hash('user123', 10);
 
-  console.log('✅ Cleaned existing data');
+  const admin = await prisma.usuario.upsert({
+    where: { email: 'admin@perfumeria.com' },
+    update: {},
+    create: {
+      nombre: 'Admin',
+      apellido: 'Sistema',
+      email: 'admin@perfumeria.com',
+      passwordHash: adminHash,
+      telefono: '+5492994000001',
+      role: Role.ADMIN,
+    },
+  });
 
-  // Create Categories (Familias olfativas)
+  const user1 = await prisma.usuario.upsert({
+    where: { email: 'sol@perfumeria.com' },
+    update: {},
+    create: {
+      nombre: 'Sol',
+      apellido: 'Scotto',
+      email: 'sol@perfumeria.com',
+      passwordHash: userHash,
+      telefono: '+5492994000002',
+      role: Role.USER,
+    },
+  });
+
+  const user2 = await prisma.usuario.upsert({
+    where: { email: 'juan@perfumeria.com' },
+    update: {},
+    create: {
+      nombre: 'Juan',
+      apellido: 'Pérez',
+      email: 'juan@perfumeria.com',
+      passwordHash: userHash,
+      telefono: '+5492994000003',
+      role: Role.USER,
+    },
+  });
+
+  console.log('✅ Usuarios creados');
+
+  // -------------------------------------------------------------------------
+  // CATEGORÍAS
+  // -------------------------------------------------------------------------
   const categorias = await Promise.all([
-    prisma.categoria.create({
-      data: {
-        nombre: 'Cítrica Fresca',
-        descripcion: 'Notas frescas y vibrantes de frutas cítricas',
-        slug: 'citrica-fresca',
-      },
+    prisma.categoria.upsert({
+      where: { slug: 'florales' },
+      update: {},
+      create: { nombre: 'Florales', descripcion: 'Perfumes con notas florales', slug: 'florales' },
     }),
-    prisma.categoria.create({
-      data: {
-        nombre: 'Floral',
-        descripcion: 'Aromas dominated por flores',
-        slug: 'floral',
-      },
+    prisma.categoria.upsert({
+      where: { slug: 'orientales' },
+      update: {},
+      create: { nombre: 'Orientales', descripcion: 'Perfumes con notas orientales y especiadas', slug: 'orientales' },
     }),
-    prisma.categoria.create({
-      data: {
-        nombre: 'Amaderada',
-        descripcion: 'Notas de maderas como sándalo y cedro',
-        slug: 'amaderada',
-      },
+    prisma.categoria.upsert({
+      where: { slug: 'amaderados' },
+      update: {},
+      create: { nombre: 'Amaderados', descripcion: 'Perfumes con notas de madera', slug: 'amaderados' },
     }),
-    prisma.categoria.create({
-      data: {
-        nombre: 'Oriental',
-        descripcion: 'Aromas exóticos con especias y resinas',
-        slug: 'oriental',
-      },
+    prisma.categoria.upsert({
+      where: { slug: 'citricos' },
+      update: {},
+      create: { nombre: 'Cítricos', descripcion: 'Perfumes frescos y cítricos', slug: 'citricos' },
     }),
-    prisma.categoria.create({
-      data: {
-        nombre: 'Aromática Especiada',
-        descripcion: 'Hierbas frescas y especias',
-        slug: 'aromatica-especiada',
-      },
-    }),
-    prisma.categoria.create({
-      data: {
-        nombre: 'Frual Dulce',
-        descripcion: 'Combinación de frutas con notas dulces',
-        slug: 'frual-dulce',
-      },
+    prisma.categoria.upsert({
+      where: { slug: 'acuaticos' },
+      update: {},
+      create: { nombre: 'Acuáticos', descripcion: 'Perfumes con notas marinas y frescas', slug: 'acuaticos' },
     }),
   ]);
 
-  console.log(`✅ Created ${categorias.length} categorias`);
+  console.log('✅ Categorías creadas');
 
-  // Create Brands
+  // -------------------------------------------------------------------------
+  // MARCAS
+  // -------------------------------------------------------------------------
   const marcas = await Promise.all([
-    prisma.marca.create({
-      data: {
-        nombre: 'Dior',
-        descripcion: 'Maison de alta perfumería francesa',
-        paisOrigen: 'Francia',
-        logoUrl: '/logos/dior.png',
-      },
+    prisma.marca.upsert({
+      where: { nombre: 'Chanel' },
+      update: {},
+      create: { nombre: 'Chanel', descripcion: 'Maison de moda y perfumería francesa', paisOrigen: 'Francia' },
     }),
-    prisma.marca.create({
-      data: {
-        nombre: 'Chanel',
-        descripcion: 'Elegancia atemporal francesa',
-        paisOrigen: 'Francia',
-        logoUrl: '/logos/chanel.png',
-      },
+    prisma.marca.upsert({
+      where: { nombre: 'Dior' },
+      update: {},
+      create: { nombre: 'Dior', descripcion: 'Alta costura y perfumería de lujo', paisOrigen: 'Francia' },
     }),
-    prisma.marca.create({
-      data: {
-        nombre: 'Tom Ford',
-        descripcion: 'Lujo y sensualidad estadounidense',
-        paisOrigen: 'Estados Unidos',
-        logoUrl: '/logos/tomford.png',
-      },
+    prisma.marca.upsert({
+      where: { nombre: 'Versace' },
+      update: {},
+      create: { nombre: 'Versace', descripcion: 'Moda italiana de lujo', paisOrigen: 'Italia' },
     }),
-    prisma.marca.create({
-      data: {
-        nombre: 'Yves Saint Laurent',
-        descripcion: 'Perfumería francesa icónica',
-        paisOrigen: 'Francia',
-        logoUrl: '/logos/ysl.png',
-      },
+    prisma.marca.upsert({
+      where: { nombre: 'Calvin Klein' },
+      update: {},
+      create: { nombre: 'Calvin Klein', descripcion: 'Moda y fragancias americanas', paisOrigen: 'Estados Unidos' },
     }),
-    prisma.marca.create({
-      data: {
-        nombre: 'Paco Rabanne',
-        descripcion: 'Innovación y audacia española',
-        paisOrigen: 'España',
-        logoUrl: '/logos/pacorabanne.png',
-      },
-    }),
-    prisma.marca.create({
-      data: {
-        nombre: 'Thierry Mugler',
-        descripcion: 'Perfumería bold y memorable',
-        paisOrigen: 'Francia',
-        logoUrl: '/logos/mugler.png',
-      },
+    prisma.marca.upsert({
+      where: { nombre: 'Yves Saint Laurent' },
+      update: {},
+      create: { nombre: 'Yves Saint Laurent', descripcion: 'Alta moda y fragancias icónicas', paisOrigen: 'Francia' },
     }),
   ]);
 
-  console.log(`✅ Created ${marcas.length} marcas`);
+  console.log('✅ Marcas creadas');
 
-  // Create Perfumes with Variants
+  // -------------------------------------------------------------------------
+  // PERFUMES + VARIANTES
+  // -------------------------------------------------------------------------
   const perfumesData = [
     {
-      nombre: 'Sauvage',
-      marcaId: marcas[0].id,
-      categoriaId: categorias[0].id,
-      descripcion:
-        'Una creación radicalmente fresca con notas de bergamota de Calabria y ambroxano. Sauvage es unarco de frescas materias primas de la naturaleza.',
-      concentracion: 'EDT',
-      genero: 'HOMBRE',
-      tipo: 'designer',
+      nombre: 'N°5',
+      slug: 'chanel-n5',
+      marcaIdx: 0,
+      categoriaIdx: 0,
+      concentracion: Concentracion.EDP,
+      genero: Genero.MUJER,
+      tipo: 'Floral Aldehídico',
+      descripcion: 'El perfume más icónico del mundo, creado en 1921.',
       variantes: [
-        { volumen: 30, precio: 45000, stock: 15, sku: 'SAU-30' },
-        { volumen: 50, precio: 62000, stock: 20, sku: 'SAU-50' },
-        { volumen: 100, precio: 85000, stock: 25, sku: 'SAU-100' },
-      ],
-    },
-    {
-      nombre: 'Miss Dior Blooming Bouquet',
-      marcaId: marcas[0].id,
-      categoriaId: categorias[1].id,
-      descripcion:
-        'Un ramo de flores blancas donde la rosa damascena se mezcla con la peonía y el absolute deiris. Frescorradiante y femenino.',
-      concentracion: 'EDT',
-      genero: 'MUJER',
-      tipo: 'designer',
-      variantes: [
-        { volumen: 30, precio: 38000, stock: 12, sku: 'MSD-30' },
-        { volumen: 50, precio: 55000, stock: 18, sku: 'MSD-50' },
-        { volumen: 100, precio: 75000, stock: 10, sku: 'MSD-100' },
+        { volumen: 30, precio: 85000, stock: 15, sku: 'CHA-N5-030' },
+        { volumen: 50, precio: 125000, stock: 10, sku: 'CHA-N5-050' },
+        { volumen: 100, precio: 175000, stock: 8, sku: 'CHA-N5-100' },
       ],
     },
     {
       nombre: 'Bleu de Chanel',
-      marcaId: marcas[1].id,
-      categoriaId: categorias[2].id,
-      descripcion:
-        'Una interpretación audaz y luminosa de Chanel Bleu. Notas de patchouli, sandalo y cedro de Virginia se unen en una firma moderna.',
-      concentracion: 'EDP',
-      genero: 'HOMBRE',
-      tipo: 'designer',
+      slug: 'chanel-bleu',
+      marcaIdx: 0,
+      categoriaIdx: 2,
+      concentracion: Concentracion.EDP,
+      genero: Genero.HOMBRE,
+      tipo: 'Aromático Maderado',
+      descripcion: 'Una fragancia maderada y aromática para el hombre moderno.',
       variantes: [
-        { volumen: 50, precio: 68000, stock: 14, sku: 'BDC-50' },
-        { volumen: 100, precio: 92000, stock: 20, sku: 'BDC-100' },
+        { volumen: 50, precio: 115000, stock: 12, sku: 'CHA-BLC-050' },
+        { volumen: 100, precio: 160000, stock: 7, sku: 'CHA-BLC-100' },
       ],
     },
     {
-      nombre: 'Coco Mademoiselle',
-      marcaId: marcas[1].id,
-      categoriaId: categorias[3].id,
-      descripcion:
-        'Una oriental moderna, chispeante y迷糊 fresca. Notas de naranja amarga, rosa y patchouli se entrelazan en una composición audaz.',
-      concentracion: 'EDP',
-      genero: 'MUJER',
-      tipo: 'designer',
+      nombre: 'Sauvage',
+      slug: 'dior-sauvage',
+      marcaIdx: 1,
+      categoriaIdx: 4,
+      concentracion: Concentracion.EDT,
+      genero: Genero.HOMBRE,
+      tipo: 'Aromático Fresco',
+      descripcion: 'Un perfume salvaje y noble inspirado en los cielos abiertos.',
       variantes: [
-        { volumen: 50, precio: 72000, stock: 8, sku: 'CM-50' },
-        { volumen: 100, precio: 98000, stock: 12, sku: 'CM-100' },
+        { volumen: 60, precio: 98000, stock: 20, sku: 'DIO-SAU-060' },
+        { volumen: 100, precio: 135000, stock: 14, sku: 'DIO-SAU-100' },
+        { volumen: 200, precio: 185000, stock: 5, sku: 'DIO-SAU-200' },
       ],
     },
     {
-      nombre: 'Black Orchid',
-      marcaId: marcas[2].id,
-      categoriaId: categorias[3].id,
-      descripcion:
-        'Una orquídea negra sumergiuxe en un bosque de notas oscuras. patchouli, madera de agar y vanilla crean un misterio profundo.',
-      concentracion: 'PARFUM',
-      genero: 'MUJER',
-      tipo: 'niche',
+      nombre: 'Miss Dior',
+      slug: 'dior-miss-dior',
+      marcaIdx: 1,
+      categoriaIdx: 0,
+      concentracion: Concentracion.EDP,
+      genero: Genero.MUJER,
+      tipo: 'Floral Fresco',
+      descripcion: 'Una declaración de amor en forma de fragancia floral.',
       variantes: [
-        { volumen: 50, precio: 125000, stock: 5, sku: 'BNO-50' },
-        { volumen: 100, precio: 185000, stock: 3, sku: 'BNO-100' },
+        { volumen: 30, precio: 78000, stock: 10, sku: 'DIO-MIS-030' },
+        { volumen: 50, precio: 110000, stock: 8, sku: 'DIO-MIS-050' },
+        { volumen: 100, precio: 155000, stock: 6, sku: 'DIO-MIS-100' },
       ],
     },
     {
-      nombre: 'Oud Wood',
-      marcaId: marcas[2].id,
-      categoriaId: categorias[2].id,
-      descripcion:
-        'Un oud sofisticado rodeado de maderas preciosas. Dal Rossi, cardamomo y ambergris en una fusión suave y elegante.',
-      concentracion: 'EDP',
-      genero: 'HOMBRE',
-      tipo: 'niche',
+      nombre: 'Eros',
+      slug: 'versace-eros',
+      marcaIdx: 2,
+      categoriaIdx: 2,
+      concentracion: Concentracion.EDT,
+      genero: Genero.HOMBRE,
+      tipo: 'Oriental Fougère',
+      descripcion: 'Inspirado en el dios griego del amor. Intenso y sensual.',
       variantes: [
-        { volumen: 50, precio: 145000, stock: 6, sku: 'OWD-50' },
-        { volumen: 100, precio: 210000, stock: 4, sku: 'OWD-100' },
+        { volumen: 30, precio: 55000, stock: 18, sku: 'VER-ERO-030' },
+        { volumen: 50, precio: 75000, stock: 12, sku: 'VER-ERO-050' },
+        { volumen: 100, precio: 105000, stock: 9, sku: 'VER-ERO-100' },
       ],
     },
     {
-      nombre: 'La Nuit Y',
-      marcaId: marcas[3].id,
-      categoriaId: categorias[3].id,
-      descripcion:
-        'Una oriental amaderada nocturna. Notas de almizcle, madera de oud y lavanda se unen en una esencia seductora.',
-      concentracion: 'EDP',
-      genero: 'HOMBRE',
-      tipo: 'designer',
+      nombre: 'CK One',
+      slug: 'ck-one',
+      marcaIdx: 3,
+      categoriaIdx: 3,
+      concentracion: Concentracion.EDT,
+      genero: Genero.UNISEX,
+      tipo: 'Cítrico Floral',
+      descripcion: 'La fragancia unisex que redefinió la perfumería en los 90.',
       variantes: [
-        { volumen: 50, precio: 52000, stock: 16, sku: 'LNY-50' },
-        { volumen: 100, precio: 78000, stock: 22, sku: 'LNY-100' },
+        { volumen: 50, precio: 42000, stock: 25, sku: 'CKL-ONE-050' },
+        { volumen: 100, precio: 60000, stock: 20, sku: 'CKL-ONE-100' },
+        { volumen: 200, precio: 85000, stock: 10, sku: 'CKL-ONE-200' },
       ],
     },
     {
-      nombre: 'Libre',
-      marcaId: marcas[3].id,
-      categoriaId: categorias[1].id,
-      descripcion:
-        'La esencia de la libertad: lavanda de Provence, naranja de Valencia y almizcle. Un floral баршинто freshness.',
-      concentracion: 'EDP',
-      genero: 'MUJER',
-      tipo: 'designer',
+      nombre: 'Black Opium',
+      slug: 'ysl-black-opium',
+      marcaIdx: 4,
+      categoriaIdx: 1,
+      concentracion: Concentracion.EDP,
+      genero: Genero.MUJER,
+      tipo: 'Oriental Gourmand',
+      descripcion: 'Una fragancia adictiva con notas de café negro y vainilla.',
       variantes: [
-        { volumen: 30, precio: 42000, stock: 10, sku: 'LIB-30' },
-        { volumen: 50, precio: 58000, stock: 15, sku: 'LIB-50' },
-        { volumen: 100, precio: 82000, stock: 18, sku: 'LIB-100' },
-      ],
-    },
-    {
-      nombre: '1 Million',
-      marcaId: marcas[4].id,
-      categoriaId: categorias[3].id,
-      descripcion:
-        'Un oriental luminoso con notas de sangre de桂花, корица y tabaco rubio. La audacia en estado puro.',
-      concentracion: 'EDT',
-      genero: 'HOMBRE',
-      tipo: 'designer',
-      variantes: [
-        { volumen: 50, precio: 48000, stock: 20, sku: '1ML-50' },
-        { volumen: 100, precio: 68000, stock: 25, sku: '1ML-100' },
-      ],
-    },
-    {
-      nombre: 'Phantom',
-      marcaId: marcas[4].id,
-      categoriaId: categorias[2].id,
-      descripcion:
-        'El robot más走过来 de Paco Rabanne. Notas de lavanda, menta y vetiver en una fragancia futurista.',
-      concentracion: 'EDP',
-      genero: 'HOMBRE',
-      tipo: 'designer',
-      variantes: [
-        { volumen: 50, precio: 55000, stock: 12, sku: 'PHN-50' },
-        { volumen: 100, precio: 78000, stock: 18, sku: 'PHN-100' },
-      ],
-    },
-    {
-      nombre: 'Alien',
-      marcaId: marcas[5].id,
-      categoriaId: categorias[1].id,
-      descripcion:
-        'Una extraterrestre de origen ambre. notes of jasmine, woody amber and cashmere wood. Lo infinito en una fragancia.',
-      concentracion: 'PARFUM',
-      genero: 'MUJER',
-      tipo: 'niche',
-      variantes: [
-        { volumen: 30, precio: 68000, stock: 7, sku: 'ALN-30' },
-        { volumen: 50, precio: 95000, stock: 10, sku: 'ALN-50' },
-        { volumen: 100, precio: 135000, stock: 5, sku: 'ALN-100' },
-      ],
-    },
-    {
-      nombre: 'Aventus',
-      marcaId: marcas[5].id,
-      categoriaId: categorias[0].id,
-      descripcion:
-        'La leyenda de Creed. bergamota corsa, abedul y一点点 de almizcle. Para hombres que marcan época.',
-      concentracion: 'EDP',
-      genero: 'HOMBRE',
-      tipo: 'niche',
-      variantes: [
-        { volumen: 50, precio: 175000, stock: 4, sku: 'AVN-50' },
-        { volumen: 100, precio: 250000, stock: 3, sku: 'AVN-100' },
+        { volumen: 30, precio: 72000, stock: 14, sku: 'YSL-BOP-030' },
+        { volumen: 50, precio: 98000, stock: 9, sku: 'YSL-BOP-050' },
+        { volumen: 90, precio: 135000, stock: 5, sku: 'YSL-BOP-090' },
       ],
     },
   ];
 
-  for (const perfumeData of perfumesData) {
-    const { variantes, ...data } = perfumeData;
-    const slug = data.nombre.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  for (const data of perfumesData) {
+    const { variantes, marcaIdx, categoriaIdx, ...perfumeFields } = data;
 
-    await prisma.perfume.create({
-      data: {
-        ...data,
-        slug,
-        activo: true,
-        variantes: {
-          create: variantes,
-        },
+    const perfume = await prisma.perfume.upsert({
+      where: { slug: perfumeFields.slug },
+      update: {},
+      create: {
+        ...perfumeFields,
+        marcaId: marcas[marcaIdx].id,
+        categoriaId: categorias[categoriaIdx].id,
       },
     });
+
+    for (const v of variantes) {
+      await prisma.variantePerfume.upsert({
+        where: { sku: v.sku },
+        update: {},
+        create: { ...v, perfumeId: perfume.id },
+      });
+    }
   }
 
-  console.log(`✅ Created ${perfumesData.length} perfumes`);
+  console.log('✅ Perfumes y variantes creados');
 
-  // Create default admin user
-  const bcrypt = require('bcrypt');
-  const hashedPassword = await bcrypt.hash('admin123', 10);
+  // -------------------------------------------------------------------------
+  // MÉTODOS DE PAGO
+  // -------------------------------------------------------------------------
+  const metodosPago = await Promise.all([
+    prisma.metodoPago.upsert({
+      where: { nombre: 'Tarjeta de Crédito' },
+      update: {},
+      create: { nombre: 'Tarjeta de Crédito', tipo: TipoMetodoPago.TARJETA_CREDITO },
+    }),
+    prisma.metodoPago.upsert({
+      where: { nombre: 'Tarjeta de Débito' },
+      update: {},
+      create: { nombre: 'Tarjeta de Débito', tipo: TipoMetodoPago.TARJETA_DEBITO },
+    }),
+    prisma.metodoPago.upsert({
+      where: { nombre: 'Transferencia Bancaria' },
+      update: {},
+      create: { nombre: 'Transferencia Bancaria', tipo: TipoMetodoPago.TRANSFERENCIA_BANCARIA },
+    }),
+    prisma.metodoPago.upsert({
+      where: { nombre: 'Efectivo' },
+      update: {},
+      create: { nombre: 'Efectivo', tipo: TipoMetodoPago.EFECTIVO },
+    }),
+    prisma.metodoPago.upsert({
+      where: { nombre: 'Mercado Pago' },
+      update: {},
+      create: { nombre: 'Mercado Pago', tipo: TipoMetodoPago.BILLETERA_VIRTUAL },
+    }),
+  ]);
 
-  await prisma.usuario.create({
-    data: {
-      nombre: 'Admin',
-      apellido: 'Perfumería',
-      email: 'admin@perfumeria.com',
-      passwordHash: hashedPassword,
-      telefono: '+54 11 1234 5678',
-      role: 'ADMIN',
-      activo: true,
-    },
-  });
+  console.log('✅ Métodos de pago creados');
 
-  console.log('✅ Created admin user (admin@perfumeria.com / admin123)');
-
-  console.log('🌸 Seed completed!');
+  console.log('\n🎉 Seeder finalizado correctamente');
+  console.log('─────────────────────────────────────');
+  console.log('👤 Admin:  admin@perfumeria.com / admin123');
+  console.log('👤 User 1: sol@perfumeria.com   / user123');
+  console.log('👤 User 2: juan@perfumeria.com  / user123');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Seed error:', e);
+    console.error('❌ Error en seeder:', e);
     process.exit(1);
   })
   .finally(async () => {

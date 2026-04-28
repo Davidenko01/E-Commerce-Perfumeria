@@ -3,7 +3,7 @@ import { PrismaClient } from '../generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as dotenv from 'dotenv';
 
-dotenv.config(); // 👈 esto faltaba
+dotenv.config();
 
 @Injectable()
 export class PrismaService extends PrismaClient {
@@ -11,7 +11,7 @@ export class PrismaService extends PrismaClient {
     const connectionString = process.env.DATABASE_URL;
 
     if (!connectionString) {
-      throw new Error('DATABASE_URL is not defined'); // 👈 así ves el error real
+      throw new Error('DATABASE_URL is not defined');
     }
 
     const adapter = new PrismaPg({ connectionString });

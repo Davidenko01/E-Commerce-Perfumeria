@@ -9,7 +9,6 @@ import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/register.dto';
 import { CrearUsuarioDto } from '../users/dto/crear-usuario.dto';
-import { UsuarioResponse } from '../users/interfaces/user-response.interface';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 
 @Injectable()
@@ -28,6 +27,7 @@ export class AuthService {
     }
 
     const hashedPassword: string = await bcrypt.hash(password, 10);
+
     const crearUsuarioDto: CrearUsuarioDto = {
       email,
       nombre,
@@ -44,7 +44,12 @@ export class AuthService {
 
     return {
       access_token: this.jwtService.sign(payload),
-      user,
+      user: {
+        id: user.id,
+        email: user.email,
+        nombre: user.nombre,
+        role: user.role,
+      },
     };
   }
 
@@ -60,6 +65,7 @@ export class AuthService {
       password,
       user.passwordHash,
     );
+
     if (!passwordMatched) {
       throw new UnauthorizedException('Credenciales inválidas');
     }

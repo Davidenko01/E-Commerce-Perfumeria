@@ -1,26 +1,34 @@
-
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { UserRole } from '../../users/interfaces/user.interface';
+import { JwtUser } from '../interfaces/jwt-user.interface';
+
 @Injectable()
 export class RolesGuard implements CanActivate {
-  //Reflector es una clase de NestJS que permite acceder a los metadatos definidos en los decoradores
   constructor(private reflector: Reflector) {}
 
-  // Se busca que roles se requieren para acceder a la ruta usando el reflector y se comparan con los roles del usuario autenticado
-  canActivate(context: ExecutionContext,): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>('roles', [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+  canActivate(context: ExecutionContext): boolean {
+    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
+      'roles',
+      [context.getHandler(), context.getClass()],
+    );
 
     if (!requiredRoles) {
-      return true; // Si no se requieren roles, se permite el acceso
+      return true;
     }
 
-    const { user } = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<{ user?: JwtUser }>();
+    const user = request.user;
+
     if (!user || !requiredRoles.includes(user.role)) {
-        throw new ForbiddenException('No tienes permiso para acceder a este recurso');
+      throw new ForbiddenException(
+        'No tienes permiso para acceder a este recurso',
+      );
     }
 
     return true;
