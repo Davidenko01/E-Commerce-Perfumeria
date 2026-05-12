@@ -35,6 +35,8 @@ export class UsuariosController {
   }
 
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
   create(@Body() dto: CrearUsuarioDto) {
     return this.usuariosService.create(dto);
   }

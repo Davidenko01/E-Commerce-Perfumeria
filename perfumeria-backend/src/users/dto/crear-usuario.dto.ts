@@ -20,8 +20,8 @@ export class CrearUsuarioDto {
   email: string;
 
   @IsNotEmpty()
-  @MinLength(6)
-  passwordHash: string;
+  @MinLength(8)
+  password: string;
 
   @IsOptional()
   @IsString()
