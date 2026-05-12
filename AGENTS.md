@@ -1,88 +1,115 @@
-# Perfumería - Agent Instructions
+# Perfumería — Agent Instructions
 
-## Project Structure
-
-- `perfumeria-backend/` - NestJS API (port 3000)
-- `perfumeria-frontend/` - React + Vite app (port 5173)
-- `perfumeria-backend/docs/` - Documentación del proyecto
-
-## Developer Commands
-
-**Backend:**
+## Setup
 
 ```bash
+docker-compose up -d      # PostgreSQL on port 5432
 cd perfumeria-backend
-npm run start:dev      # Start with watch mode (port 3000)
-npm run lint           # Lint + Prettier fix
-npm run test           # Run unit tests
-npm run test:e2e       # Run e2e tests
-npm run build          # Build para producción
-npm run seed           # Run database seed
+npx prisma generate       # Prisma client -> src/generated/prisma/ (CJS, gitignored)
+npx prisma migrate dev
+npm run seed              # ts-node --compiler-options '{"module":"CommonJS"}'
+cd ../perfumeria-frontend
+# create .env with: VITE_API_URL=http://localhost:3000
+npm run dev               # Vite on :5173
 ```
 
-**Frontend:**
+**Database credentials mismatch**: `docker-compose.yml` creates `dev_user:dev_password` on port `5432` (db `perfumeria_db`), but `perfumeria-backend/.env` has `postgres:Mallow00` on port `5433` (db `postgres`). The `.env` is gitignored — update it to match docker-compose if you use the default container.
 
-```bash
-cd perfumeria-frontend
-npm run dev             # Start dev server (port 5173)
-npm run build           # TypeScript check + Vite build
-npm run lint            # ESLint
-```
+**Required env vars** (no `.env.example` exists):
+- Backend: `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRES_IN`
+- Frontend: `VITE_API_URL`
 
-## Setup Requirements
+## Commands
 
-1. **Database**: `docker-compose up -d` (PostgreSQL on port 5432)
-2. **Generate Prisma client**: `npx prisma generate`
-3. **Apply migrations**: `npx prisma migrate dev --name init`
-4. **Seed database**: `npm run seed`
-5. **Frontend**: Create `perfumeria-frontend/.env` with `VITE_API_URL=http://localhost:3000`
+| cd to | Command | What |
+|---|---|---|
+| `perfumeria-backend` | `npm run start:dev` | NestJS watch mode (:3000) |
+| | `npm run lint` | ESLint flat config + Prettier fix |
+| | `npm run test` | Jest unit tests (`**/*.spec.ts`) |
+| | `npm run test:e2e` | E2E via `test/jest-e2e.json` |
+| | `npm run build` | `nest build` |
+| `perfumeria-frontend` | `npm run dev` | Vite dev server (:5173) |
+| | `npm run build` | `tsc -b && vite build` |
+| | `npm run lint` | ESLint flat config |
 
-## Backend Modules (Spanish naming)
+Frontend has no test script.
 
-| Module        | Ruta          | Descripción               |
-| ------------- | ------------- | ------------------------- |
-| `auth/`       | `/auth`       | Login, register, JWT      |
-| `marcas/`     | `/marcas`     | CRUD marcas               |
-| `categorias/` | `/categorias` | Familias olfativas        |
-| `productos/`  | `/productos`  | CRUD perfumes + variantes |
-| `usuarios/`   | `/usuarios`   | CRUD usuarios             |
-| `carrito/`    | `/carrito`    | Gestión carrito           |
-| `pedidos/`    | `/pedidos`    | Órdenes de compra         |
-| `showroom/`   | `/showroom`   | Info del local            |
+## Backend architecture
 
-## Prisma Schema
+- **NestJS 11** with `nodenext` module resolution
+- **Path aliases** (tsconfig paths): `@/` -> `src/`, `@generated/` -> `src/generated/`, `@prisma/` -> `src/generated/prisma/`
+- **Prisma 7** with `@prisma/adapter-pg` + `pg` — adapter pattern in `PrismaService` (`src/prisma/prisma.service.ts:9`)
+- **Prisma client**: CommonJS output at `src/generated/prisma/` — import from `../generated/prisma/client`
+- **Flat ESLint config** (`eslint.config.mjs`) with `@typescript-eslint` + Prettier plugin
+- **JWT auth**: `JwtAuthGuard` + `RolesGuard` with `@Roles('ADMIN')` decorator
+- CORS allows `http://localhost:5173` only
 
-- Prisma schema: `perfumeria-backend/prisma/schema.prisma`
-- Prisma client outputs to `perfumeria-backend/generated/prisma/`
-- Generator uses `moduleFormat = "cjs"` (CommonJS)
+## Backend modules
 
-### Modelos MVP activos:
+| Source dir | Route prefix | Notes |
+|---|---|---|
+| `auth/` | `/auth` | Login, register, JWT strategy |
+| `users/` | `/usuarios` | Module class is `UsuariosModule` |
+| `productos/` | `/productos` | Paginated, filterable, includes variantes + notas |
+| `variantes/` | `/variantes` | CRUD + stock update, ADMIN auth. Only module with tests. |
+| `marcas/` | `/marcas` | |
+| `categorias/` | `/categorias` | |
+| `carrito/` | `/carrito` | |
+| `pedidos/` | `/pedidos` | |
+| `showroom/` | `/showroom` | **Uses mock data** (only module not on Prisma) |
 
-- `Usuario`, `Marca`, `Perfume`, `Categoria`
-- `VariantePerfume` (ml, precio, stock por perfume)
-- `Carrito`, `ItemCarrito`
-- `Pedido`, `ItemPedido`
-- `MetodoPago`, `Pago`, `PagoEvento`
+## Fase 1 — Bugs fixed (2026-05-11)
 
-### Postergados (futuras fases):
+All 6 structural bugs resolved. `npm run build` and `npm run test` pass.
 
-- `MovimientoStock`, `Logistica`, `Direccion`
-- `Linea`, `Acordes`, `Resena`
+1. **`pedidos.service.ts:128-134`** — Items creation uncommented, populates `nombre`, `marca`, `volumen`, `precioAnterior`, `etiquetaDescuento`, `subtotal` from variante + perfume relations.
+2. **`productos.service.ts:239-241`** — `minPrice`/`maxPrice` now applied via `where.variantes.some({ precio: { gte/lte } })`.
+3. **`categorias.service.ts:delete()`** — Changed to soft delete (`activo: false`).
+4. **`categorias.service.ts:findAll()`** — Now filters `where: { activo: true }`.
+5. **`marcas.service.ts:findOne()`** — Changed from `findUnique({ id })` to `findFirst({ id, activo: true })`.
+6. **`users/user-response.interface.ts` + `usuarios.service.ts`** — Added `apellido` field. All 4 `select` clauses now include `apellido: true`.
 
-## Seed Data
+Remaining Fase 1 tasks (infrastructure): `@nestjs/config` migration, Swagger, health check, dead code cleanup, test coverage.
 
-Run `npm run seed` para populate la base de datos con:
+## Dead code (safe to delete)
 
-- 6 categorías (familias olfativas)
-- 6 marcas (Dior, Chanel, Tom Ford, YSL, Paco Rabanne, Mugler)
-- 12 perfumes con variantes (30ml, 50ml, 100ml)
-- Admin user: `admin@perfumeria.com` / `admin123`
+| File | Why |
+|------|-----|
+| `productos/interfaces/prisma-perfume.interface.ts` | Duplicates Prisma auto-generated types |
+| `users/dto/create-user.dto.ts` | English duplicate of `crear-usuario.dto.ts`, never imported |
+| `users/interfaces/user-safe.interface.ts` | Never imported |
+| `variantes/entities/variante.entity.ts` | NestJS boilerplate class, never used |
+| `perfumeria-frontend/src/lib/products.ts` | 388 lines of mock data, never imported |
 
-## Testing
+## 8/20 Prisma models have no service code
 
-- Tests viven junto a los source files (`.spec.ts`)
-- Backend usa flat ESLint config con Prettier plugin
+Models with schema + migration but zero runtime usage: `Direccion`, `MetodoPago`, `Pago`, `PagoEvento`, `Cupon`, `UsoCupon`, `MovimientoStock`, `Resena`. These are planned features (see `docs/ROADMAP.md`).
 
-## Documentation
+## Frontend state
 
-- `docs/DATA_MODEL.md` — Modelo de datos completo
+Only `Home.tsx` page live. `App.tsx` has many routes commented out (`ProductoDetalle`, `Carrito`, `Checkout`, etc.). Stack: React 19, React Router 7, TanStack Query, Tailwind CSS v4, Axios.
+
+- `src/hooks/useProducts.ts` is empty (0 bytes).
+- `src/context/` is empty — `AuthProvider` and `CartProvider` are referenced in comments but don't exist.
+- `src/services/api.ts` has 15 API functions covering all backend endpoints. Fully typed.
+- `Hero.tsx` uses hardcoded image URLs and fake sale logic (first 3 products get -20% regardless of actual data).
+
+## Testing quirks
+
+- Unit tests use `tsconfig.test.json` (CommonJS module override). Jest config at `jest.config.js`.
+- E2E config at `test/jest-e2e.json` — separate ts-jest transform
+- Only `variantes` module has unit tests. Auth, productos, and pedidos have none.
+- No CI workflows configured
+
+## Seed
+
+Creates 7 brands, 4 categories, 8 olfactory families, ~26 notes, 3 perfumes (Bleu de Chanel, Sauvage, Tobacco Vanille) with varying-volume variants, and admin user `admin@perfumeria.com` / `admin123`.
+
+## Schema
+
+`prisma/schema.prisma` — 20 models, all migrated. `perfumeria-backend/docs/DATA_MODEL.md` has the ER diagram (partially outdated — lists some models as "future phases" that are already migrated).
+
+## Docs
+
+- `docs/ARCHITECTURE.md` — Full architecture overview, data flow, design decisions, model coverage
+- `docs/ROADMAP.md` — 4-phase execution plan: Stabilization → Core Features → Premium UX → Production
