@@ -1,10 +1,9 @@
 import React from 'react'
+import { Hero } from '../components/Hero'
 
 function Home() {
   return (
-    <div className='max-w'>
-        <h1>HOLAAAAAAAAAAAAAAAAAAA</h1>
-    </div>
+    <Hero/>
   )
 }
 
