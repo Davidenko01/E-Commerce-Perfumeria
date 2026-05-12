@@ -9,9 +9,16 @@ import { AuthModule } from './auth/auth.module';
 import { CarritoModule } from './carrito/carrito.module';
 import { PedidosModule } from './pedidos/pedidos.module';
 import { VariantesModule } from './variantes/variantes.module';
+import { validate } from './config/env.validation';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      validate,
+      isGlobal: true,
+      envFilePath: '.env',
+    }),
     ProductosModule,
     MarcasModule,
     CategoriasModule,
