@@ -1,33 +1,57 @@
-export interface PerfumeResponse {
+import { Genero, Concentracion, TipoNota } from '../../generated/prisma/enums';
+
+export interface CategoriaResponse {
   id: number;
-  marcaId: number;
-  categoriaId: number;
   nombre: string;
-  descripcion: string | null;
-  concentracion: string | null;
-  genero: string;
-  tipo: string | null;
-  activo: boolean;
-  imagenUrl: string | null;
   slug: string;
-  createdAt: Date;
-  marca?: {
-    id: number;
-    nombre: string;
-  };
-  categoria?: {
-    id: number;
-    nombre: string;
-  };
-  variantes?: VariantePerfumeResponse[];
 }
 
-export interface VariantePerfumeResponse {
+export interface MarcaResponse {
   id: number;
-  perfumeId: number;
+  nombre: string;
+  slug: string;
+}
+
+export interface VarianteResponse {
+  id: number;
   volumen: number;
   precio: number;
+  precioComparativo: number | null;
+  etiquetaDescuento: string | null;
+  inicioDescuento: Date | null;
+  finDescuento: Date | null;
   stock: number;
   sku: string;
+}
+
+export type NotasAgrupadasResponse = Partial<
+  Record<Lowercase<TipoNota>, string[]>
+>;
+
+export interface PerfumeResponse {
+  id: number;
+  slug: string;
+  nombre: string;
+  descripcion: string | null;
+  concentracion: Concentracion;
+  genero: Genero;
+  imagenUrl: string;
+  galeriaImagenes: string[];
+  destacado: boolean;
   activo: boolean;
+  marca: MarcaResponse;
+  categoria: CategoriaResponse;
+  familiaOlfativa: string;
+  notas: NotasAgrupadasResponse;
+  variantes: VarianteResponse[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PaginatedPerfumesResponse {
+  data: PerfumeResponse[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }

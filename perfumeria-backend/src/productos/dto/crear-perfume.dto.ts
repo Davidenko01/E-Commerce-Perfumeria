@@ -1,77 +1,83 @@
 import { Type } from 'class-transformer';
 import {
-  IsArray,
-  IsNotEmpty,
-  IsNumber,
-  IsOptional,
   IsString,
+  IsOptional,
+  IsInt,
+  IsEnum,
+  IsBoolean,
+  IsArray,
   IsUrl,
-  Min,
+  MaxLength,
+  IsPositive,
+  ValidateNested,
+  IsNotEmpty,
 } from 'class-validator';
+import { Concentracion, Genero, TipoNota } from '../../generated/prisma/client';
+import { CreateVarianteDto } from './crear-variante-perfume.dto';
 
-export class CrearVariantePerfumeDto {
-  @IsNotEmpty()
-  @Type(() => Number)
-  @IsNumber()
-  volumen: number;
+export class NotaPerfumeDto {
+  @IsInt()
+  @IsPositive()
+  notaId: number;
 
-  @IsNotEmpty()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  precio: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  stock?: number;
-
-  @IsNotEmpty()
-  @IsString()
-  sku: string;
+  @IsEnum(TipoNota)
+  tipoNota: TipoNota;
 }
 
 export class CrearPerfumeDto {
-  @IsNotEmpty()
-  @IsString()
-  nombre: string;
-
-  @IsNotEmpty()
-  @Type(() => Number)
-  @IsNumber()
+  @IsInt()
+  @IsPositive()
   marcaId: number;
 
-  @IsNotEmpty()
-  @Type(() => Number)
-  @IsNumber()
+  @IsInt()
+  @IsPositive()
   categoriaId: number;
+
+  @IsString()
+  @MaxLength(200)
+  nombre: string;
 
   @IsOptional()
   @IsString()
   descripcion?: string;
 
-  @IsOptional()
-  @IsString()
-  concentracion?: 'EF' | 'EDC' | 'EDT' | 'EDP' | 'PARFUM' | 'ELIXIR';
+  @IsEnum(Concentracion)
+  concentracion: Concentracion;
 
-  @IsNotEmpty()
-  @IsString()
-  genero: 'HOMBRE' | 'MUJER' | 'UNISEX';
+  @IsEnum(Genero)
+  genero: Genero;
 
-  @IsOptional()
-  @IsString()
-  tipo?: 'designer' | 'niche' | 'arabic';
+  @IsInt()
+  @IsPositive()
+  familiaOlfativaId: number;
 
   @IsOptional()
+  @IsBoolean()
+  activo?: boolean = true;
+
   @IsUrl()
-  imagenUrl?: string;
+  imagenUrl: string;
 
   @IsOptional()
+  @IsArray()
+  @IsUrl({}, { each: true })
+  galeriaImagenes?: string[] = [];
+
   @IsString()
-  slug?: string;
+  slug: string;
+
+  @IsOptional()
+  @IsBoolean()
+  destacado?: boolean = false;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => NotaPerfumeDto)
+  notas?: NotaPerfumeDto[];
 
   @IsArray()
-  @IsNotEmpty()
-  variantes: CrearVariantePerfumeDto[];
+  @ValidateNested({ each: true })
+  @Type(() => CreateVarianteDto)
+  variantes: CreateVarianteDto[];
 }

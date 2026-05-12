@@ -1,167 +1,272 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Genero, Concentracion, Prisma } from '@prisma/client';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CrearPerfumeDto } from './dto/crear-perfume.dto';
 import { ActualizarPerfumeDto } from './dto/actualizar-perfume.dto';
 import { FiltrosPerfumeDto } from './dto/filtros-perfume.dto';
+import { Prisma } from '../generated/prisma/client';
+import { PerfumeMapper } from './mappers/perfume.mapper';
+import {
+  PerfumeResponse,
+  PaginatedPerfumesResponse,
+} from './interfaces/perfume-response.interface';
+
+//Definición estructura del Includes para uso global
+export const perfumeInclude = {
+  marca: { select: { nombre: true, slug: true } },
+  categoria: true,
+  familiaOlfativa: { select: { nombre: true } },
+  variantes: { where: { activo: true }, orderBy: { volumen: 'asc' } },
+  perfumeNotas: {
+    select: {
+      tipoNota: true,
+      nota: { select: { nombre: true } },
+    },
+    orderBy: { tipoNota: 'asc' },
+  },
+} satisfies Prisma.PerfumeInclude;
+
+// Generacion del type exacto del perfume con relaciones usando la constante de include (lo hace Prisma automáticamente)
+export type PrismaPerfumeWithRelations = Prisma.PerfumeGetPayload<{
+  include: typeof perfumeInclude;
+}>;
 
 @Injectable()
 export class ProductosService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(filters: FiltrosPerfumeDto) {
-    const where: Prisma.PerfumeWhereInput = {};
-
-    if (filters.search) {
-      where.OR = [
-        { nombre: { contains: filters.search, mode: 'insensitive' } },
-        { descripcion: { contains: filters.search, mode: 'insensitive' } },
-        {
-          marca: { nombre: { contains: filters.search, mode: 'insensitive' } },
-        },
-      ];
-    }
-
-    if (filters.marca) {
-      where.marca = {
-        nombre: { contains: filters.marca, mode: 'insensitive' },
-      };
-    }
-
-    if (filters.genero) {
-      where.genero = filters.genero as Genero;
-    }
-
-    if (filters.tipo) {
-      where.tipo = filters.tipo;
-    }
-
-    if (filters.concentracion) {
-      where.concentracion = filters.concentracion as Concentracion;
-    }
-
-    if (filters.categoriaId) {
-      where.categoriaId = filters.categoriaId;
-    }
-
-    const perfumes = await this.prisma.perfume.findMany({
-      where,
-      include: {
-        marca: { select: { id: true, nombre: true } },
-        categoria: { select: { id: true, nombre: true } },
-        variantes: {
-          where: { activo: true },
-          orderBy: { volumen: 'asc' },
-        },
-      },
-      orderBy: { nombre: 'asc' },
-    });
-
-    if (filters.minPrice || filters.maxPrice) {
-      return perfumes.filter((p) => {
-        const prices = p.variantes.map((v) => Number(v.precio));
-        const minVariantPrice = Math.min(...prices);
-        if (filters.minPrice && minVariantPrice < filters.minPrice)
-          return false;
-        if (filters.maxPrice && minVariantPrice > filters.maxPrice)
-          return false;
-        return true;
-      });
-    }
-
-    return perfumes;
+  private generateSlug(nombre: string): string {
+    return nombre
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
   }
 
-  async findOne(id: number) {
+  private async findRawOrFail(id: number): Promise<PrismaPerfumeWithRelations> {
     const perfume = await this.prisma.perfume.findUnique({
       where: { id },
-      include: {
-        marca: { select: { id: true, nombre: true } },
-        categoria: { select: { id: true, nombre: true } },
-        variantes: {
-          where: { activo: true },
-          orderBy: { volumen: 'asc' },
-        },
-      },
+      include: perfumeInclude,
     });
 
-    if (!perfume) {
+    if (!perfume)
       throw new NotFoundException(`Perfume con ID ${id} no encontrado`);
-    }
 
     return perfume;
   }
 
-  async create(dto: CrearPerfumeDto) {
-    const { variantes, ...perfumeData } = dto;
+  async create(dto: CrearPerfumeDto): Promise<PerfumeResponse> {
+    const slug = this.generateSlug(dto.nombre);
 
-    const slug = dto.slug || this.generateSlug(dto.nombre);
+    const existing = await this.prisma.perfume.findUnique({ where: { slug } });
+    if (existing) throw new ConflictException(`El slug '${slug}' ya existe`);
 
-    return this.prisma.perfume.create({
-      data: {
-        ...perfumeData,
-        slug,
-        activo: true,
-        variantes: {
-          create: variantes.map((v) => ({
+    await this.prisma.$transaction(async (tx) => {
+      const created = await tx.perfume.create({
+        data: {
+          marcaId: dto.marcaId,
+          categoriaId: dto.categoriaId,
+          nombre: dto.nombre,
+          descripcion: dto.descripcion,
+          concentracion: dto.concentracion,
+          genero: dto.genero,
+          familiaOlfativaId: dto.familiaOlfativaId,
+          activo: dto.activo ?? true,
+          imagenUrl: dto.imagenUrl,
+          galeriaImagenes: dto.galeriaImagenes ?? [],
+          slug,
+          destacado: dto.destacado ?? false,
+        },
+      });
+
+      if (dto.variantes?.length) {
+        await tx.variantePerfume.createMany({
+          data: dto.variantes.map((v) => ({
+            perfumeId: created.id,
             volumen: v.volumen,
             precio: v.precio,
-            stock: v.stock || 0,
+            precioComparativo: v.precioComparativo,
+            etiquetaDescuento: v.etiquetaDescuento,
+            inicioDescuento: v.inicioDescuento
+              ? new Date(v.inicioDescuento)
+              : null,
+            finDescuento: v.finDescuento ? new Date(v.finDescuento) : null,
+            stock: v.stock ?? 0,
             sku: v.sku,
-            activo: true,
+            activo: v.activo ?? true,
           })),
+        });
+      }
+
+      if (dto.notas?.length) {
+        await tx.perfumeNota.createMany({
+          data: dto.notas.map((n) => ({
+            perfumeId: created.id,
+            notaId: n.notaId,
+            tipoNota: n.tipoNota,
+          })),
+        });
+      }
+
+      return created;
+    });
+
+    return this.findOne(
+      (await this.prisma.perfume.findUniqueOrThrow({ where: { slug } })).id,
+    );
+  }
+
+  async findAll(query: FiltrosPerfumeDto): Promise<PaginatedPerfumesResponse> {
+    const where = this.buildWhereClause(query);
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 12;
+    const skip = (page - 1) * limit;
+
+    const [perfumes, total] = await this.prisma.$transaction([
+      this.prisma.perfume.findMany({
+        where,
+        include: perfumeInclude,
+        skip,
+        take: limit,
+        orderBy: { nombre: 'asc' },
+      }),
+      this.prisma.perfume.count({ where }),
+    ]);
+
+    return {
+      data: perfumes.map(PerfumeMapper.toResponse),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async findOne(id: number): Promise<PerfumeResponse> {
+    const perfume = await this.findRawOrFail(id);
+    return PerfumeMapper.toResponse(perfume);
+  }
+
+  async findBySlug(slug: string): Promise<PerfumeResponse> {
+    const base = await this.prisma.perfume.findUnique({ where: { slug } });
+    if (!base)
+      throw new NotFoundException(`Perfume con slug '${slug}' no encontrado`);
+    return this.findOne(base.id);
+  }
+
+  async update(
+    id: number,
+    dto: ActualizarPerfumeDto,
+  ): Promise<PerfumeResponse> {
+    await this.findRawOrFail(id);
+
+    if (dto.slug) {
+      const slugTaken = await this.prisma.perfume.findFirst({
+        where: { slug: dto.slug, id: { not: id } },
+      });
+      if (slugTaken)
+        throw new ConflictException(`El slug '${dto.slug}' ya está en uso`);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.perfume.update({
+        where: { id },
+        data: {
+          marcaId: dto.marcaId,
+          categoriaId: dto.categoriaId,
+          nombre: dto.nombre,
+          descripcion: dto.descripcion,
+          concentracion: dto.concentracion,
+          genero: dto.genero,
+          familiaOlfativaId: dto.familiaOlfativaId,
+          activo: dto.activo,
+          imagenUrl: dto.imagenUrl,
+          galeriaImagenes: dto.galeriaImagenes,
+          slug: dto.slug,
+          destacado: dto.destacado,
         },
-      },
-      include: {
-        marca: { select: { id: true, nombre: true } },
-        categoria: { select: { id: true, nombre: true } },
-        variantes: true,
-      },
+      });
+
+      if (dto.variantes) {
+        await tx.variantePerfume.deleteMany({ where: { perfumeId: id } });
+        await tx.variantePerfume.createMany({
+          data: dto.variantes.map((v) => ({
+            perfumeId: id,
+            volumen: v.volumen,
+            precio: v.precio,
+            precioComparativo: v.precioComparativo,
+            etiquetaDescuento: v.etiquetaDescuento,
+            inicioDescuento: v.inicioDescuento
+              ? new Date(v.inicioDescuento)
+              : null,
+            finDescuento: v.finDescuento ? new Date(v.finDescuento) : null,
+            stock: v.stock ?? 0,
+            sku: v.sku,
+            activo: v.activo ?? true,
+          })),
+        });
+      }
+
+      if (dto.notas) {
+        await tx.perfumeNota.deleteMany({ where: { perfumeId: id } });
+        await tx.perfumeNota.createMany({
+          data: dto.notas.map((n) => ({
+            perfumeId: id,
+            notaId: n.notaId,
+            tipoNota: n.tipoNota,
+          })),
+        });
+      }
     });
+
+    return this.findOne(id);
   }
 
-  async update(id: number, dto: ActualizarPerfumeDto) {
-    await this.findOne(id);
-
-    const { variantes, ...perfumeData } = dto;
-
-    return this.prisma.perfume.update({
-      where: { id },
-      data: {
-        ...perfumeData,
-        variantes: variantes
-          ? {
-              deleteMany: { perfumeId: id },
-              create: variantes.map((v) => ({
-                volumen: v.volumen,
-                precio: v.precio,
-                stock: v.stock || 0,
-                sku: v.sku,
-                activo: true,
-              })),
-            }
-          : undefined,
-      },
-      include: {
-        marca: { select: { id: true, nombre: true } },
-        categoria: { select: { id: true, nombre: true } },
-        variantes: true,
-      },
-    });
-  }
-
-  async delete(id: number) {
-    await this.findOne(id);
+  async remove(id: number): Promise<void> {
+    await this.findRawOrFail(id);
     await this.prisma.perfume.update({
       where: { id },
       data: { activo: false },
     });
   }
 
-  private generateSlug(nombre: string): string {
-    return nombre
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
+  async restore(id: number): Promise<PerfumeResponse> {
+    await this.prisma.perfume.update({ where: { id }, data: { activo: true } });
+    return this.findOne(id);
+  }
+
+  private buildWhereClause(query: FiltrosPerfumeDto): Prisma.PerfumeWhereInput {
+    const where: Prisma.PerfumeWhereInput = { activo: true };
+
+    if (query.search) {
+      where.OR = [
+        { nombre: { contains: query.search, mode: 'insensitive' } },
+        { descripcion: { contains: query.search, mode: 'insensitive' } },
+        { marca: { nombre: { contains: query.search, mode: 'insensitive' } } },
+      ];
+    }
+
+    if (query.marca)
+      where.marca = { nombre: { contains: query.marca, mode: 'insensitive' } };
+    if (query.genero) where.genero = query.genero;
+    if (query.concentracion) where.concentracion = query.concentracion;
+    if (query.categoriaId) where.categoriaId = query.categoriaId;
+    if (query.familiaOlfativaId)
+      where.familiaOlfativaId = query.familiaOlfativaId;
+    if (query.destacado !== undefined)
+      where.destacado = query.destacado === 'true';
+
+    if (query.minPrice !== undefined || query.maxPrice !== undefined) {
+      const precioFilter: Prisma.DecimalFilter = {};
+      if (query.minPrice !== undefined) precioFilter.gte = query.minPrice;
+      if (query.maxPrice !== undefined) precioFilter.lte = query.maxPrice;
+      where.variantes = { some: { precio: precioFilter, activo: true } };
+    }
+
+    return where;
   }
 }

@@ -17,6 +17,7 @@ import { FiltrosPerfumeDto } from './dto/filtros-perfume.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/role.decorator';
+import { PerfumeResponse } from './interfaces/perfume-response.interface';
 
 @Controller('productos')
 export class ProductosController {
@@ -28,8 +29,13 @@ export class ProductosController {
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  findOne(@Param('id', ParseIntPipe) id: number): Promise<PerfumeResponse> {
     return this.productosService.findOne(id);
+  }
+
+  @Get('/slug/:slug')
+  findOneBySlug(@Param('slug') slug: string): Promise<PerfumeResponse> {
+    return this.productosService.findBySlug(slug);
   }
 
   @Post()
@@ -53,6 +59,6 @@ export class ProductosController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   delete(@Param('id', ParseIntPipe) id: number) {
-    return this.productosService.delete(id);
+    return this.productosService.remove(id);
   }
 }
