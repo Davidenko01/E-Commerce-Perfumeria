@@ -1,5 +1,4 @@
 import {
-  ConflictException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -8,7 +7,6 @@ import { UsuariosService } from '../users/usuarios.service';
 import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/register.dto';
-import { CrearUsuarioDto } from '../users/dto/crear-usuario.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 
 @Injectable()
@@ -19,23 +17,8 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto) {
-    const { email, password, nombre, apellido } = registerDto;
+    const user = await this.usuariosService.create(registerDto);
 
-    const existingUser = await this.usuariosService.findByEmail(email);
-    if (existingUser) {
-      throw new ConflictException('El correo ya está registrado');
-    }
-
-    const hashedPassword: string = await bcrypt.hash(password, 10);
-
-    const crearUsuarioDto: CrearUsuarioDto = {
-      email,
-      nombre,
-      apellido,
-      passwordHash: hashedPassword,
-    };
-
-    const user = await this.usuariosService.create(crearUsuarioDto);
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -61,11 +44,8 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    const passwordMatched: boolean = await bcrypt.compare(
-      password,
-      user.passwordHash,
-    );
-
+    const passwordMatched: boolean = await bcrypt.compare(password, user.passwordHash,);
+    
     if (!passwordMatched) {
       throw new UnauthorizedException('Credenciales inválidas');
     }

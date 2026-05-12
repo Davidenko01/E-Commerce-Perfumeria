@@ -14,6 +14,6 @@ export class RegisterDto {
   apellido: string;
 
   @IsNotEmpty()
-  @MinLength(6)
+  @MinLength(8)
   password: string;
 }
