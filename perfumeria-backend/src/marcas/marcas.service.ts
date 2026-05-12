@@ -16,8 +16,8 @@ export class MarcasService {
   }
 
   async findOne(id: number): Promise<MarcaResponse> {
-    const marca = await this.prisma.marca.findUnique({
-      where: { id },
+    const marca = await this.prisma.marca.findFirst({
+      where: { id, activo: true },
     });
     if (!marca) {
       throw new NotFoundException(`Marca con ID ${id} no encontrada`);
@@ -29,6 +29,10 @@ export class MarcasService {
     return this.prisma.marca.create({
       data: {
         nombre: dto.nombre,
+        slug: dto.nombre
+          .toLowerCase()
+          .replace(/\s+/g, '-')
+          .replace(/[^a-z0-9\-]/g, ''),
         descripcion: dto.descripcion,
         paisOrigen: dto.paisOrigen,
         logoUrl: dto.logoUrl,

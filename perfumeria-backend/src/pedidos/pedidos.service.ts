@@ -2,10 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CrearPedidoDto } from './dto/crear-pedido.dto';
 import { ActualizarEstadoPedidoDto } from './dto/actualizar-estado-pedido.dto';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class PedidosService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private configService: ConfigService
+  ) {}
 
   private generateNroPedido(): string {
     const timestamp = Date.now().toString(36).toUpperCase();
@@ -96,7 +100,19 @@ export class PedidosService {
   async create(usuarioId: number, dto: CrearPedidoDto) {
     const carrito = await this.prisma.carrito.findFirst({
       where: { usuarioId, estado: 'ACTIVO' },
-      include: { items: { include: { variante: true } } },
+      include: {
+        items: {
+          include: {
+            variante: {
+              include: {
+                perfume: {
+                  include: { marca: true },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!carrito || carrito.items.length === 0) {
@@ -116,8 +132,8 @@ export class PedidosService {
         nroPedido,
         tipoEntrega: dto.tipoEntrega,
         subtotal,
-        costoEnvio: dto.tipoEntrega === 'ENVIO' ? 1500 : 0,
-        total: subtotal + (dto.tipoEntrega === 'ENVIO' ? 1500 : 0),
+        costoEnvio: this.configService.get<number>('COSTO_ENVIO_DEFAULT')!,
+        total: subtotal + (dto.tipoEntrega === 'ENVIO' ? this.configService.get<number>('COSTO_ENVIO_DEFAULT')! : 0),
         estado: 'PENDIENTE',
         observaciones: dto.observaciones,
         telefonoContacto: dto.telefonoContacto,
@@ -130,6 +146,12 @@ export class PedidosService {
             varianteId: item.varianteId,
             cantidad: item.cantidad,
             precioUnitario: item.precioUnitario,
+            nombre: item.variante.perfume.nombre,
+            marca: item.variante.perfume.marca.nombre,
+            volumen: item.variante.volumen,
+            precioAnterior: item.variante.precioComparativo,
+            etiquetaDescuento: item.variante.etiquetaDescuento,
+            subtotal: Number(item.precioUnitario) * item.cantidad,
           })),
         },
       },

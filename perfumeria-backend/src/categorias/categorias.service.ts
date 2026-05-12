@@ -10,6 +10,7 @@ export class CategoriasService {
 
   async findAll(): Promise<CategoriaResponse[]> {
     return this.prisma.categoria.findMany({
+      where: { activo: true },
       orderBy: { nombre: 'asc' },
     });
   }
@@ -57,8 +58,9 @@ export class CategoriasService {
 
   async delete(id: number): Promise<void> {
     await this.findOne(id);
-    await this.prisma.categoria.delete({
+    await this.prisma.categoria.update({
       where: { id },
+      data: { activo: false },
     });
   }
 }
