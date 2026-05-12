@@ -1,12 +1,11 @@
 generator client {
-  provider = "prisma-client"
-  output = "../src/generated/prisma"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
   moduleFormat = "cjs"
 }
 
 datasource db {
   provider = "postgresql"
-  
 }
 
 // ENUMS
@@ -45,6 +44,14 @@ enum EstadoPedido {
   CANCELADO
 }
 
+enum TipoMovimientoStock {
+  VENTA // Descuento por venta
+  DEVOLUCION // Reingreso por devolución
+  INGRESO_MANUAL // Ingreso manual (nueva compra de stock)
+  EGRESO_MANUAL // Egreso manual (merma, rotura)
+  AJUSTE // Corrección de inventario
+}
+
 enum EstadoPago {
   PENDIENTE
   APROBADO
@@ -67,60 +74,143 @@ enum TipoMetodoPago {
   OTRO
 }
 
+enum TipoNota {
+  SALIDA
+  CORAZON
+  FONDO
+}
+
+enum TipoDescuento {
+  PORCENTAJE
+  MONTO_FIJO
+}
+
+enum EstadoResena {
+  PENDIENTE // Esperando moderación
+  APROBADA // Visible en la web
+  RECHAZADA // Oculto por spam/inapropiado
+}
+
 // -----------------------------------------------------------------------------
 // MODELOS
 // -----------------------------------------------------------------------------
 
 model Usuario {
-  id           Int       @id @default(autoincrement())
+  id           Int      @id @default(autoincrement())
   nombre       String
   apellido     String
-  email        String    @unique
-  passwordHash String    @map("password_hash")
+  email        String   @unique
+  passwordHash String   @map("password_hash")
   telefono     String?
-  role         Role      @default(USER)
-  activo       Boolean   @default(true)
-  createdAt    DateTime  @default(now()) @map("created_at")
+  role         Role     @default(USER)
+  activo       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
-  pedidos  Pedido[]
-  carritos Carrito[]
-  pagos    Pago[]
+  carrito       Carrito?
+  direcciones   Direccion[]
+  cuponesUsados UsoCupon[]
+  pedidos       Pedido[]
+  pagos         Pago[]
+  resenas       Resena[]
 
+  @@index([email])
   @@map("usuarios")
 }
 
+model Direccion {
+  id         Int     @id @default(autoincrement())
+  usuarioId  Int     @map("usuario_id")
+  etiqueta   String
+  calle      String
+  ciudad     String
+  provincia  String
+  cod_postal String  @map("cod_postal")
+  notas      String?
+  principal  Boolean @default(false)
+
+  user Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("direcciones")
+}
+
 model Marca {
-  id          Int       @id @default(autoincrement())
-  nombre      String    @unique
+  id          Int     @id @default(autoincrement())
+  nombre      String
+  slug        String  @unique
   descripcion String?
-  paisOrigen  String?   @map("pais_origen")
-  activo      Boolean   @default(true)
-  logoUrl     String?   @map("logo_url")
+  paisOrigen  String? @map("pais_origen")
+  activo      Boolean @default(true)
+  logoUrl     String? @map("logo_url")
 
   perfumes Perfume[]
 
+  @@index([slug])
   @@map("marcas")
 }
 
 model Perfume {
-  id            Int           @id @default(autoincrement())
-  marcaId       Int           @map("marca_id")
-  categoriaId   Int           @map("categoria_id")
-  nombre        String
-  descripcion   String?
-  concentracion Concentracion?
-  genero        Genero
-  tipo          String?
-  activo        Boolean       @default(true)
-  imagenUrl     String?       @map("imagen_url")
-  slug          String        @unique
-  createdAt     DateTime      @default(now()) @map("created_at")
+  id                Int            @id @default(autoincrement())
+  marcaId           Int            @map("marca_id")
+  categoriaId       Int            @map("categoria_id")
+  nombre            String
+  descripcion       String?
+  concentracion     Concentracion
+  genero            Genero
+  familiaOlfativaId Int            @map("familia_olfativa_id")
+  activo            Boolean        @default(true)
+  imagenUrl         String         @map("imagen_url")
+  galeriaImagenes   String[]       @map("galeria_imagenes") // Array de URLs para galería de imágenes
+  slug              String         @unique
+  destacado         Boolean        @default(false)
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
 
-  marca     Marca              @relation(fields: [marcaId], references: [id])
-  categoria Categoria         @relation(fields: [categoriaId], references: [id])
-  variantes VariantePerfume[]
+  familiaOlfativa FamiliaOlfativa   @relation(fields: [familiaOlfativaId], references: [id], onDelete: Restrict)
+  marca           Marca             @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  categoria       Categoria         @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
+  variantes       VariantePerfume[]
+  perfumeNotas    PerfumeNota[]
+  resenas         Resena[]
 
+  @@index([slug])
+  @@index([categoriaId])
+  @@index([marcaId])
+  @@index([genero])
+  @@index([destacado])
+  @@index([activo])
   @@map("perfumes")
+}
+
+model FamiliaOlfativa {
+  id       Int       @id @default(autoincrement())
+  nombre   String    @unique @db.VarChar(50)
+  perfumes Perfume[]
+
+  @@map("familias_olfativas")
+}
+
+model PerfumeNota {
+  perfumeId Int
+  notaId    Int
+  tipoNota  TipoNota
+
+  perfume Perfume @relation(fields: [perfumeId], references: [id], onDelete: Cascade)
+  nota    Nota    @relation(fields: [notaId], references: [id], onDelete: Restrict)
+
+  @@id([perfumeId, notaId, tipoNota])
+  @@index([notaId])
+  @@index([tipoNota])
+  @@map("perfume_notas")
+}
+
+model Nota {
+  id           Int           @id @default(autoincrement())
+  nombre       String        @unique @db.VarChar(100)
+  perfumeNotas PerfumeNota[]
+
+  @@map("notas")
 }
 
 model Categoria {
@@ -128,37 +218,50 @@ model Categoria {
   nombre      String
   descripcion String?
   slug        String    @unique
+  activo      Boolean   @default(true) @map("is_active")
+  perfumes    Perfume[]
 
-  perfumes Perfume[]
-
+  @@index([slug])
+  @@index([activo])
   @@map("categorias")
 }
 
 model VariantePerfume {
-  id        Int     @id @default(autoincrement())
-  perfumeId Int     @map("perfume_id")
-  volumen   Int
-  precio    Decimal @db.Decimal(10, 2)
-  stock     Int     @default(0)
-  sku       String  @unique
-  activo    Boolean @default(true)
+  id                Int       @id @default(autoincrement())
+  perfumeId         Int       @map("perfume_id")
+  volumen           Int
+  precio            Decimal   @db.Decimal(10, 2)
+  precioComparativo Decimal?  @map("precio_comparativo") @db.Decimal(10, 2)
+  etiquetaDescuento String?   @map("etiqueta_descuento")
+  inicioDescuento   DateTime? @map("inicio_descuento")
+  finDescuento      DateTime? @map("fin_descuento")
+  stock             Int       @default(0)
+  sku               String    @unique
+  activo            Boolean   @default(true)
 
-  perfume      Perfume       @relation(fields: [perfumeId], references: [id])
-  itemsCarrito ItemCarrito[]
-  itemsPedido  ItemPedido[]
+  perfume          Perfume           @relation(fields: [perfumeId], references: [id], onDelete: Cascade)
+  itemsCarrito     ItemCarrito[]
+  itemsPedido      ItemPedido[]
+  movimientoStocks MovimientoStock[]
 
+  @@index([perfumeId, activo])
+  @@index([activo, stock])
+  @@index([sku])
+  @@index([precio])
   @@map("variantes_perfume")
 }
 
 model Carrito {
   id        Int           @id @default(autoincrement())
-  usuarioId Int           @map("usuario_id")
+  usuarioId Int           @unique @map("usuario_id")
   estado    EstadoCarrito @default(ACTIVO)
   creadoAt  DateTime      @default(now()) @map("creado_at")
 
-  usuario Usuario     @relation(fields: [usuarioId], references: [id])
+  usuario Usuario       @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   items   ItemCarrito[]
 
+  @@index([estado])
+  @@index([creadoAt])
   @@map("carritos")
 }
 
@@ -166,50 +269,70 @@ model ItemCarrito {
   carritoId      Int     @map("carrito_id")
   varianteId     Int     @map("variante_id")
   cantidad       Int
-  precioUnitario Decimal @db.Decimal(10, 2) @map("precio_unitario")
+  precioUnitario Decimal @map("precio_unitario") @db.Decimal(10, 2)
 
-  carrito  Carrito         @relation(fields: [carritoId], references: [id])
-  variante VariantePerfume @relation(fields: [varianteId], references: [id])
+  carrito  Carrito         @relation(fields: [carritoId], references: [id], onDelete: Cascade)
+  variante VariantePerfume @relation(fields: [varianteId], references: [id], onDelete: Restrict)
 
   @@id([carritoId, varianteId])
+  @@index([varianteId])
   @@map("items_carrito")
 }
 
 model Pedido {
-  id             Int          @id @default(autoincrement())
-  usuarioId      Int          @map("usuario_id")
-  nroPedido      String       @unique @map("nro_pedido")
-  tipoEntrega    TipoEntrega  @map("tipo_entrega")
-  subtotal       Decimal      @db.Decimal(10, 2)
-  costoEnvio     Decimal      @db.Decimal(10, 2) @default(0) @map("costo_envio")
-  total          Decimal      @db.Decimal(10, 2)
-  estado         EstadoPedido @default(PENDIENTE)
-  fechaCreacion  DateTime     @default(now()) @map("fecha_creacion")
-  observaciones  String?      @map("observaciones")
+  id               Int          @id @default(autoincrement())
+  usuarioId        Int          @map("usuario_id")
+  nroPedido        String       @unique @map("nro_pedido")
+  cuponId          Int?         @map("cupon_id")
+  estado           EstadoPedido @default(PENDIENTE)
+  tipoEntrega      TipoEntrega  @map("tipo_entrega")
+  subtotal         Decimal      @db.Decimal(10, 2)
+  costoEnvio       Decimal      @default(0) @map("costo_envio") @db.Decimal(10, 2)
+  totalDescuentado Decimal      @default(0) @map("total_descuentado") @db.Decimal(10, 2)
+  total            Decimal      @db.Decimal(10, 2)
 
-  telefonoContacto String?    @map("telefono_contacto")
-  direccionEnvio   String?    @map("direccion_envio")
-  ciudadEnvio      String?    @map("ciudad_envio")
-  provinciaEnvio   String?    @map("provincia_envio")
-  codigoPostalEnvio String?   @map("codigo_postal_envio")
+  observaciones     String?  @map("observaciones")
+  cancelacion       String?  @map("cancelacion")
+  fechaCreacion     DateTime @default(now()) @map("fecha_creacion")
+  telefonoContacto  String?  @map("telefono_contacto")
+  direccionEnvio    String?  @map("direccion_envio")
+  ciudadEnvio       String?  @map("ciudad_envio")
+  provinciaEnvio    String?  @map("provincia_envio")
+  codigoPostalEnvio String?  @map("codigo_postal_envio")
 
-  usuario   Usuario     @relation(fields: [usuarioId], references: [id])
-  items     ItemPedido[]
-  pagos     Pago[]
+  usuario          Usuario           @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  items            ItemPedido[]
+  pagos            Pago[]
+  cupon            Cupon?            @relation(fields: [cuponId], references: [id], onDelete: SetNull)
+  usoCupon         UsoCupon?
+  movimientoStocks MovimientoStock[]
+  resenas          Resena[]
 
+  @@index([usuarioId])
+  @@index([estado])
+  @@index([fechaCreacion])
+  @@index([nroPedido])
   @@map("pedidos")
 }
 
 model ItemPedido {
-  pedidoId       Int     @map("pedido_id")
-  varianteId     Int     @map("variante_id")
-  cantidad       Int
-  precioUnitario Decimal @db.Decimal(10, 2) @map("precio_unitario")
+  pedidoId          Int      @map("pedido_id")
+  varianteId        Int      @map("variante_id")
+  cantidad          Int
+  precioUnitario    Decimal  @map("precio_unitario") @db.Decimal(10, 2)
+  nombre            String
+  marca             String
+  volumen           Int
+  precioAnterior    Decimal? @map("precio_anterior") @db.Decimal(10, 2)
+  etiquetaDescuento String?  @map("etiqueta_descuento")
+  subtotal          Decimal  @db.Decimal(10, 2)
 
-  pedido   Pedido          @relation(fields: [pedidoId], references: [id])
-  variante VariantePerfume @relation(fields: [varianteId], references: [id])
+  pedido   Pedido          @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  variante VariantePerfume @relation(fields: [varianteId], references: [id], onDelete: Restrict)
 
   @@id([pedidoId, varianteId])
+  @@index([pedidoId])
+  @@index([varianteId])
   @@map("items_pedido")
 }
 
@@ -221,14 +344,16 @@ model MetodoPago {
 
   pagos Pago[]
 
+  @@index([activo])
   @@map("metodos_pago")
 }
 
 model Pago {
-  id                 Int        @id @default(autoincrement())
-  pedidoId           Int        @map("pedido_id")
-  metodoPagoId       Int        @map("metodo_pago_id")
-  usuarioId          Int        @map("usuario_id")
+  id           Int @id @default(autoincrement())
+  pedidoId     Int @map("pedido_id")
+  metodoPagoId Int @map("metodo_pago_id")
+  usuarioId    Int @map("usuario_id")
+
   cuotas             Int        @default(1)
   monto              Decimal    @db.Decimal(10, 2)
   moneda             String     @default("ARS")
@@ -236,29 +361,136 @@ model Pago {
   externalId         String?    @map("external_id")
   externalStatus     String?    @map("external_status")
   paymentType        String?    @map("payment_type")
-  montoReembolso     Decimal?   @db.Decimal(10, 2) @map("monto_reembolso")
+  montoReembolso     Decimal?   @map("monto_reembolso") @db.Decimal(10, 2)
   fechaReembolso     DateTime?  @map("fecha_reembolso")
   fechaCreacion      DateTime   @default(now()) @map("fecha_creacion")
   fechaActualizacion DateTime   @updatedAt @map("fecha_actualizacion")
 
-  pedido     Pedido     @relation(fields: [pedidoId], references: [id])
-  metodoPago MetodoPago @relation(fields: [metodoPagoId], references: [id])
-  usuario    Usuario    @relation(fields: [usuarioId], references: [id])
+  pedido     Pedido       @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
+  metodoPago MetodoPago   @relation(fields: [metodoPagoId], references: [id], onDelete: Restrict)
+  usuario    Usuario      @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
   eventos    PagoEvento[]
 
+  @@index([pedidoId])
+  @@index([usuarioId])
+  @@index([estado])
+  @@index([fechaCreacion])
   @@map("pagos")
 }
 
 model PagoEvento {
-  id             Int        @id @default(autoincrement())
-  pagoId         Int        @map("pago_id")
+  id             Int         @id @default(autoincrement())
+  pagoId         Int         @map("pago_id")
   estadoAnterior EstadoPago? @map("estado_anterior")
-  estadoNuevo    EstadoPago @map("estado_nuevo")
+  estadoNuevo    EstadoPago  @map("estado_nuevo")
   origen         String
   payload        Json?
-  fecha          DateTime   @default(now())
+  fecha          DateTime    @default(now())
 
-  pago Pago @relation(fields: [pagoId], references: [id])
+  pago Pago @relation(fields: [pagoId], references: [id], onDelete: Cascade)
 
+  @@index([pagoId])
+  @@index([fecha])
   @@map("pagos_eventos")
+}
+
+model Cupon {
+  id                Int           @id @default(autoincrement())
+  codigo            String        @unique
+  descripcion       String?
+  tipoDescuento     TipoDescuento @map("tipo_descuento")
+  montoDescuento    Decimal       @map("monto_descuento") @db.Decimal(10, 2)
+  montoMinimoCompra Decimal?      @map("monto_minimo_compra") @db.Decimal(10, 2)
+  maxCantUsos       Int?          @map("max_cant_usos")
+  cantUsos          Int           @default(0) @map("cant_usos")
+  activo            Boolean       @default(true)
+  expira            DateTime?
+  creado            DateTime      @default(now())
+  actualizado       DateTime      @updatedAt
+
+  pedidos      Pedido[]
+  couponUsages UsoCupon[]
+
+  @@index([codigo])
+  @@index([activo])
+  @@index([expira])
+  @@map("cupones")
+}
+
+model UsoCupon {
+  id        Int      @id @default(autoincrement())
+  cuponId   Int      @map("cupon_id")
+  usuarioId Int      @map("usuario_id")
+  pedidoId  Int      @unique @map("pedido_id")
+  usedAt    DateTime @default(now())
+
+  coupon Cupon   @relation(fields: [cuponId], references: [id], onDelete: Cascade)
+  user   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  order  Pedido  @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+
+  @@unique([cuponId, usuarioId])
+  @@index([cuponId])
+  @@index([usuarioId])
+  @@index([usedAt])
+  @@map("usos_cupon")
+}
+
+model MovimientoStock {
+  id           Int                 @id @default(autoincrement())
+  varianteId   Int                 @map("variante_id")
+  pedidoId     Int?                @map("pedido_id") // Vinculado a una orden si aplica
+  tipo         TipoMovimientoStock @map("tipo_movimiento")
+  cantidad     Int // Positivo = ingreso, negativo = egreso
+  stockAntes   Int                 @map("stock_anterior") // Stock antes del movimiento
+  stockDespues Int                 @map("stock_posterior") // Stock después del movimiento
+  motivo       String?             @map("motivo") // Descripción libre: "Compra proveedor", "Rotura", etc.
+  createdAt    DateTime            @default(now()) @map("fecha_creacion")
+
+  // Relaciones
+  variant VariantePerfume @relation(fields: [varianteId], references: [id])
+  order   Pedido?         @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
+
+  @@index([varianteId])
+  @@index([pedidoId])
+  @@index([createdAt])
+  @@map("movimientos_stock")
+}
+
+model Resena {
+  id           Int          @id @default(autoincrement())
+  perfumeId    Int          @map("perfume_id")
+  usuarioId    Int          @map("usuario_id")
+  pedidoId     Int          @map("pedido_id")
+  calificacion Int // 1-5 estrellas
+  titulo       String?      @db.VarChar(100) // Título opcional
+  comentario   String?      @db.Text // Comentario largo
+  ventajas     String?      @db.Text // Lo que le gustó
+  desventajas  String?      @db.Text // Lo que no le gustó
+  estado       EstadoResena @default(PENDIENTE)
+  likes        Int          @default(0) // Votos útiles
+  visible      Boolean      @default(true) // Si está visible en la web
+  fechaCompra  DateTime?    @map("fecha_compra") // Para verificar que compró
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  // Respuesta del vendedor
+  respuestaAdmin String?   @map("respuesta_admin") @db.Text
+  respuestaFecha DateTime? @map("respuesta_fecha")
+
+  // Relaciones
+  perfume Perfume @relation(fields: [perfumeId], references: [id], onDelete: Cascade)
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  pedido  Pedido  @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+
+  // Una persona solo puede reseñar una vez por producto comprado
+  @@unique([perfumeId, usuarioId, pedidoId])
+  // Índices para búsquedas rápidas
+  @@index([perfumeId])
+  @@index([usuarioId])
+  @@index([calificacion])
+  @@index([estado])
+  @@index([createdAt])
+  @@index([perfumeId, estado, visible]) // Para mostrar reseñas aprobadas
+  @@index([calificacion, createdAt]) // Para ordenar por más útiles/recientes
+  @@map("resenas")
 }
